@@ -41,12 +41,13 @@ function importOneFile(srcPath: string, dataDir: string): boolean {
   const ext = path.extname(srcPath).toLowerCase();
   if (!IMG_EXT.includes(ext)) return false;
 
-  const imagesDir = path.join(dataDir, 'images');
-  const relPath = `images/${path.basename(srcPath)}`;
+  const base = path.basename(srcPath);
 
-  // Already imported?
-  const existing = queryAll<{ id: number }>('SELECT id FROM images WHERE file_path = ?', [relPath]);
+  // Dedup by original filename (same field used by IPC IMAGES_SCAN)
+  const existing = queryAll<{ id: number }>('SELECT id FROM images WHERE file_name = ?', [base]);
   if (existing.length > 0) return false;
+
+  const imagesDir = path.join(dataDir, 'images');
 
   try {
     const stats = fs.statSync(srcPath);
@@ -123,6 +124,11 @@ function startWatching(dataDir: string) {
   });
 
   watcher.on('add', (filePath: string) => {
+    // Skip UUID files (managed copies), only watch user's new files
+    const base = path.basename(filePath);
+    const ext = path.extname(filePath);
+    const namePart = base.slice(0, -ext.length);
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(namePart)) return;
     const changed = importOneFile(filePath, dataDir);
     if (changed && mainWindow) mainWindow.webContents.send('files-changed');
   });
@@ -143,9 +149,8 @@ app.whenReady().then(async () => {
   registerAllHandlers();
   startWatching(dataDir);
 
-  // Scan existing files on startup
-  const result = scanImagesFolder(dataDir);
-  if (result.imported > 0) console.log(`[STARTUP] Imported ${result.imported} existing images`);
+  // Scan existing files on startup (safe now with file_name dedup)
+  scanImagesFolder(dataDir);
 
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

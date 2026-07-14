@@ -499,9 +499,9 @@ export function registerAllHandlers(): void {
     const imagesDir = path.join(dataDir, 'images');
     const thumbDir = path.join(dataDir, 'thumbnails');
     ensureDirectories(dataDir);
+    console.log('[REFRESH] dataDir:', dataDir);
 
     let cleaned = 0;
-
     // Step 1: remove orphan records (image file gone)
     const allImgs = queryAll<ImageRecord>('SELECT * FROM images');
     for (const img of allImgs) {
@@ -581,6 +581,7 @@ export function registerAllHandlers(): void {
     }
     if (fixedThumbs > 0) saveDatabase(path.join(dataDir, 'prompts.db'));
 
+    console.log('[REFRESH] done scanned:', allFiles.length, 'imported:', imported, 'cleaned:', cleaned, 'fixedThumbs:', fixedThumbs);
     return { scanned: allFiles.length, imported, cleaned, fixedThumbs };
   });
 

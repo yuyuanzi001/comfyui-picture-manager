@@ -137,15 +137,21 @@ export function LibraryPage() {
           图库 <span className="text-sm font-normal text-gray-400">{displayList.length}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
         </h2>
         <div className="flex gap-2">
-          <button onClick={async () => {
-            const r = await getAPI().images.scanImages();
-            const msgs: string[] = [];
-            if (r.cleaned) msgs.push(`清理 ${r.cleaned} 条失效`);
-            if (r.imported) msgs.push(`导入 ${r.imported} 张新图`);
-            if (r.fixedThumbs) msgs.push(`修复 ${r.fixedThumbs} 张缩略图`);
-            if (msgs.length) showToast('success', msgs.join('，'));
-            else showToast('info', '图库已是最新');
-            loadAll();
+          <button onClick={async (e) => {
+            e.stopPropagation();
+            setBooting(true);
+            try {
+              const api = getAPI();
+              const r = await api.images.scanImages();
+              const parts: string[] = [];
+              if (r.cleaned) parts.push('清理' + r.cleaned + '条');
+              if (r.imported) parts.push('导入' + r.imported + '张');
+              if (r.fixedThumbs) parts.push('修复' + r.fixedThumbs + '缩略图');
+              showToast('success', parts.length ? parts.join(' ') : '无变化');
+            } catch (err: any) {
+              showToast('error', '刷新失败: ' + (err.message || ''));
+            }
+            await loadAll();
           }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="刷新图库">↻ 刷新</button>
           <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
         </div>
