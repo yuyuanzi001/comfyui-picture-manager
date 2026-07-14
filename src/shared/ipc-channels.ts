@@ -30,9 +30,13 @@ export const IPC = {
 
   // Dialogs
   DIALOG_OPEN_IMAGES: 'dialog:openImages',
+  DIALOG_OPEN_DIR: 'dialog:openDirectory',
 
   // App
   APP_GET_PATHS: 'app:getPaths',
   APP_GET_SETTING: 'app:getSetting',
   APP_SET_SETTING: 'app:setSetting',
+  APP_SET_DATA_DIR: 'app:setDataDir',
+  APP_GET_DATA_DIR: 'app:getDataDir',
+  APP_OPEN_PATH: 'app:openPath',
 } as const;

@@ -2,7 +2,7 @@ import { ipcMain, dialog, app } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { IPC } from '../../shared/ipc-channels';
-import { getAppPaths } from '../utils/paths';
+import { getAppPaths, getDataDir, setDataDir } from '../utils/paths';
 import { queryAll, queryOne, execute, getDb, saveDatabase } from '../database';
 import { generateThumbnail, getImageDimensions } from '../utils/thumbnail';
 import { extractMetadata } from '../utils/png-metadata';
@@ -10,15 +10,13 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Prompt, Tag, ImageRecord, PromptListItem } from '../../shared/types';
 
 function dbPath(): string {
-  return path.join(app.getPath('userData'), 'prompts.db');
+  return path.join(getDataDir(), 'prompts.db');
 }
 
 export function registerAllHandlers(): void {
-  const userDataPath = app.getPath('userData');
-
   // ---- App ----
   ipcMain.handle(IPC.APP_GET_PATHS, () => {
-    return getAppPaths(userDataPath);
+    return getAppPaths(getDataDir());
   });
 
   // Settings
@@ -46,15 +44,35 @@ export function registerAllHandlers(): void {
     return { success: true };
   });
 
+  // Data dir management
+  ipcMain.handle(IPC.APP_GET_DATA_DIR, () => getDataDir());
+  ipcMain.handle(IPC.APP_OPEN_PATH, (_event, p: string) => {
+    const { shell } = require('electron');
+    shell.openPath(p); return { success: true };
+  });
+  ipcMain.handle(IPC.APP_SET_DATA_DIR, async (_event, dir: string) => {
+    const { initDatabase: reInitDb, closeDb: doClose } = require('../database');
+    setDataDir(dir);
+    doClose();
+    await reInitDb(getDataDir());
+    saveDatabase(path.join(getDataDir(), 'prompts.db'));
+    return { success: true };
+  });
+
   // ---- Dialog ----
   ipcMain.handle(IPC.DIALOG_OPEN_IMAGES, async () => {
     const result = await dialog.showOpenDialog({
       properties: ['openFile', 'multiSelections'],
-      filters: [
-        { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] },
-      ],
+      filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp'] }],
     });
     return result.canceled ? [] : result.filePaths;
+  });
+
+  ipcMain.handle(IPC.DIALOG_OPEN_DIR, async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openDirectory'],
+    });
+    return result.canceled ? null : result.filePaths[0];
   });
 
   // ---- Prompts ----
@@ -163,7 +181,7 @@ export function registerAllHandlers(): void {
 
     // Handle image import
     if (dto.imagePaths && dto.imagePaths.length > 0 && promptId) {
-      const { imagesDir, thumbnailsDir } = getAppPaths(userDataPath);
+      const { imagesDir, thumbnailsDir } = getAppPaths(getDataDir());
       for (let i = 0; i < dto.imagePaths.length; i++) {
         try {
           const srcPath = dto.imagePaths[i];
@@ -230,8 +248,8 @@ export function registerAllHandlers(): void {
     const images = queryAll<ImageRecord>('SELECT * FROM images WHERE prompt_id = ?', [id]);
     for (const img of images) {
       try {
-        if (img.file_path) fs.unlinkSync(path.join(userDataPath, img.file_path));
-        if (img.thumb_path) fs.unlinkSync(path.join(userDataPath, img.thumb_path));
+        if (img.file_path) fs.unlinkSync(path.join(getDataDir(), img.file_path));
+        if (img.thumb_path) fs.unlinkSync(path.join(getDataDir(), img.thumb_path));
       } catch {}
     }
 
@@ -245,8 +263,8 @@ export function registerAllHandlers(): void {
       const images = queryAll<ImageRecord>('SELECT * FROM images WHERE prompt_id = ?', [id]);
       for (const img of images) {
         try {
-          if (img.file_path) fs.unlinkSync(path.join(userDataPath, img.file_path));
-          if (img.thumb_path) fs.unlinkSync(path.join(userDataPath, img.thumb_path));
+          if (img.file_path) fs.unlinkSync(path.join(getDataDir(), img.file_path));
+          if (img.thumb_path) fs.unlinkSync(path.join(getDataDir(), img.thumb_path));
         } catch {}
       }
       execute('DELETE FROM prompts WHERE id = ?', [id]);
@@ -298,7 +316,7 @@ export function registerAllHandlers(): void {
   // ---- Images ----
   ipcMain.handle(IPC.IMAGES_IMPORT, async (_event, req) => {
     const { filePaths, autoExtract } = req;
-    const { imagesDir, thumbnailsDir } = getAppPaths(userDataPath);
+    const { imagesDir, thumbnailsDir } = getAppPaths(getDataDir());
     const errors: Array<{ fileName: string; error: string }> = [];
     let importedCount = 0;
 
@@ -419,8 +437,8 @@ export function registerAllHandlers(): void {
     const img = queryOne<ImageRecord>('SELECT * FROM images WHERE id = ?', [id]);
     if (img) {
       try {
-        if (img.file_path) fs.unlinkSync(path.join(userDataPath, img.file_path));
-        if (img.thumb_path) fs.unlinkSync(path.join(userDataPath, img.thumb_path));
+        if (img.file_path) fs.unlinkSync(path.join(getDataDir(), img.file_path));
+        if (img.thumb_path) fs.unlinkSync(path.join(getDataDir(), img.thumb_path));
       } catch {}
       execute('DELETE FROM images WHERE id = ?', [id]);
       saveDatabase(dbPath());
@@ -438,7 +456,7 @@ export function registerAllHandlers(): void {
     const img = queryOne<ImageRecord>('SELECT * FROM images WHERE id = ?', [imageId]);
     if (!img || !img.thumb_path) return null;
 
-    const thumbPath = path.join(userDataPath, img.thumb_path);
+    const thumbPath = path.join(getDataDir(), img.thumb_path);
     if (fs.existsSync(thumbPath)) {
       const data = fs.readFileSync(thumbPath);
       return `data:image/jpeg;base64,${data.toString('base64')}`;
@@ -466,7 +484,7 @@ export function registerAllHandlers(): void {
 
   // Rebuild all thumbnails
   ipcMain.handle(IPC.IMAGES_REBUILD_THUMBS, async (_event, sizeOverride?: number) => {
-    const { thumbnailsDir } = getAppPaths(userDataPath);
+    const { thumbnailsDir } = getAppPaths(getDataDir());
     const sizeRow = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['thumbnail_size']);
     const size = sizeOverride || (sizeRow ? parseInt(sizeRow.value) : 256);
 
@@ -478,7 +496,7 @@ export function registerAllHandlers(): void {
 
     for (const img of images) {
       try {
-        const srcPath = path.join(userDataPath, img.file_path);
+        const srcPath = path.join(getDataDir(), img.file_path);
         if (!fs.existsSync(srcPath)) {
           console.log(`[REBUILD] Source missing: ${srcPath}`);
           failed++;
@@ -487,7 +505,7 @@ export function registerAllHandlers(): void {
 
         // Delete old thumbnail if exists
         if (img.thumb_path) {
-          const oldPath = path.join(userDataPath, img.thumb_path);
+          const oldPath = path.join(getDataDir(), img.thumb_path);
           try { fs.unlinkSync(oldPath); } catch {}
         }
 
@@ -512,7 +530,7 @@ export function registerAllHandlers(): void {
   ipcMain.handle(IPC.IMAGES_OPEN_FOLDER, async (_event, id: number) => {
     const img = queryOne<ImageRecord>('SELECT * FROM images WHERE id = ?', [id]);
     if (img) {
-      const fullPath = path.join(userDataPath, img.file_path);
+      const fullPath = path.join(getDataDir(), img.file_path);
       const { shell } = require('electron');
       shell.showItemInFolder(fullPath);
     }

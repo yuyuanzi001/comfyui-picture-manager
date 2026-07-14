@@ -71,14 +71,28 @@ const api = {
   dialog: {
     openImages: (): Promise<string[]> =>
       ipcRenderer.invoke(IPC.DIALOG_OPEN_IMAGES),
+    openDirectory: (): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.DIALOG_OPEN_DIR),
   },
   app: {
     getPaths: (): Promise<AppPaths> =>
       ipcRenderer.invoke(IPC.APP_GET_PATHS),
+    getDataDir: (): Promise<string> =>
+      ipcRenderer.invoke(IPC.APP_GET_DATA_DIR),
+    setDataDir: (dir: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.APP_SET_DATA_DIR, dir),
+    openPath: (p: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.APP_OPEN_PATH, p),
     getSetting: (key: string): Promise<string | null> =>
       ipcRenderer.invoke(IPC.APP_GET_SETTING, key),
     setSetting: (key: string, value: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.APP_SET_SETTING, key, value),
+  },
+  // Events
+  onFilesChanged: (cb: () => void): (() => void) => {
+    const handler = () => cb();
+    ipcRenderer.on('files-changed', handler);
+    return () => { ipcRenderer.removeListener('files-changed', handler); };
   },
 };
 

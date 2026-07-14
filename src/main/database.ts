@@ -134,16 +134,12 @@ function runMigrations(database: SqlJsDatabase): void {
  */
 export function saveDatabase(dbPath?: string): void {
   if (!db) return;
-
   if (!dbPath) {
-    // Try to get app path
-    const { app } = require('electron');
-    dbPath = path.join(app.getPath('userData'), 'prompts.db');
+    const { getDataDir } = require('./utils/paths');
+    dbPath = path.join(getDataDir(), 'prompts.db');
   }
-
   const data = db.export();
-  const buffer = Buffer.from(data);
-  fs.writeFileSync(dbPath, buffer);
+  fs.writeFileSync(dbPath, Buffer.from(data));
 }
 
 /**
@@ -154,6 +150,11 @@ export function getDb(): SqlJsDatabase {
     throw new Error('Database not initialized. Call initDatabase() first.');
   }
   return db;
+}
+
+export function closeDb(): void {
+  if (db) { db.close(); db = null; }
+  SQL = null;
 }
 
 // Helper to convert sql.js result to array of objects

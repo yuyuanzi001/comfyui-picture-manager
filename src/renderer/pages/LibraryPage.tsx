@@ -45,16 +45,30 @@ export function LibraryPage() {
     return [...s].sort();
   }, [displayList]);
 
+  const loadAll = async () => {
+    const api = getAPI();
+    const [p, t] = await Promise.all([api.prompts.list({ pageSize: 9999 }), api.tags.all()]);
+    allPrompts.current = p.items;
+    allTags.current = t;
+    setDisplayList(p.items);
+    setTags(t);
+    applyFilter(searchText, chips, filterRes, filterModel);
+    setBooting(false);
+  };
+
+  useEffect(() => { loadAll(); }, []);
+
+  // Listen for auto-imported files
   useEffect(() => {
-    (async () => {
+    const handler = () => {
+      console.log('[Library] files-changed, reloading');
+      loadAll();
+    };
+    try {
       const api = getAPI();
-      const [p, t] = await Promise.all([api.prompts.list({ pageSize: 9999 }), api.tags.all()]);
-      allPrompts.current = p.items;
-      allTags.current = t;
-      setDisplayList(p.items);
-      setTags(t);
-      setBooting(false);
-    })();
+      const unsub = api.onFilesChanged(handler);
+      return () => unsub();
+    } catch {}
   }, []);
 
   const applyFilter = (kw: string, cs: string[], res: string, mdl: string) => {
