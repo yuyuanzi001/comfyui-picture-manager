@@ -15,6 +15,7 @@ export const IPC = {
   TAGS_SET_FOR_PROMPT: 'tags:setForPrompt',
 
   // Images
+  IMAGES_REBUILD_THUMBS: 'images:rebuildThumbs',
   IMAGES_IMPORT: 'images:import',
   IMAGES_DELETE: 'images:delete',
   IMAGES_GET_FOR_PROMPT: 'images:getForPrompt',
@@ -32,4 +33,6 @@ export const IPC = {
 
   // App
   APP_GET_PATHS: 'app:getPaths',
+  APP_GET_SETTING: 'app:getSetting',
+  APP_SET_SETTING: 'app:setSetting',
 } as const;

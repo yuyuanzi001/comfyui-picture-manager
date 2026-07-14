@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { getAPI } from '../lib/ipc';
 import { Button } from '../components/shared/Button';
 import { Spinner } from '../components/shared/Spinner';
@@ -7,6 +8,7 @@ import { showToast } from '../components/shared/Toast';
 
 export function ImportPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [importing, setImporting] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const dragCounter = useRef(0);
@@ -43,6 +45,9 @@ export function ImportPage() {
 
       if (result.importedCount > 0) {
         showToast('success', `成功导入 ${result.importedCount} 张图片！`);
+        // Invalidate all queries so library re-fetches fresh data
+        queryClient.invalidateQueries({ queryKey: ['prompts'] });
+        queryClient.invalidateQueries({ queryKey: ['tags'] });
         navigate('/');
       } else if (result.errors.length === 0) {
         showToast('info', '未导入任何图片');

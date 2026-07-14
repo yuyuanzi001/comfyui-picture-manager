@@ -1,8 +1,9 @@
 @echo off
 cd /d "%~dp0"
 echo.
-echo ComfyUI Prompt Manager
-echo =====================
+echo ============================
+echo   ComfyUI Picture Manager
+echo ============================
 echo.
 echo Building...
 call npm run build

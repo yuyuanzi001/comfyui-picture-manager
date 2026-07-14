@@ -16,7 +16,7 @@ export function Sidebar() {
       {/* App Title */}
       <div className="h-12 flex items-center px-4 border-b border-border titlebar-drag">
         <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          🎨 Prompt Manager
+          🎨 Picture Manager
         </h1>
       </div>
 

@@ -1,6 +1,6 @@
 import { app, BrowserWindow, protocol, nativeTheme } from 'electron';
 import path from 'path';
-import { initDatabase } from './database';
+import { initDatabase, queryOne } from './database';
 import { registerAllHandlers } from './ipc';
 import { ensureDirectories } from './utils/paths';
 
@@ -15,7 +15,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 600,
     frame: true,
-    title: 'ComfyUI Prompt Manager',
+    title: 'ComfyUI Picture Manager',
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#1e1e1e' : '#f3f3f3',
     webPreferences: {
       preload: path.join(__dirname, '..', '..', 'preload', 'preload', 'index.js'),
@@ -60,6 +60,9 @@ app.whenReady().then(async () => {
   // Initialize database (async for sql.js WASM loading)
   await initDatabase(userDataPath);
 
+  // Apply saved theme before creating window
+  applySavedTheme(userDataPath);
+
   // Register IPC handlers
   registerAllHandlers();
 
@@ -78,6 +81,22 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+function applySavedTheme(_userDataPath: string) {
+  try {
+    const row = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['theme']);
+    const theme = row?.value || 'system';
+    if (theme === 'dark') {
+      nativeTheme.themeSource = 'dark';
+    } else if (theme === 'light') {
+      nativeTheme.themeSource = 'light';
+    } else {
+      nativeTheme.themeSource = 'system';
+    }
+  } catch {
+    nativeTheme.themeSource = 'system';
+  }
+}
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();

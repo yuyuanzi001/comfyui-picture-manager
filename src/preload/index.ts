@@ -49,6 +49,8 @@ const api = {
   images: {
     import: (filePaths: string[], autoExtract?: boolean): Promise<ImportResult> =>
       ipcRenderer.invoke(IPC.IMAGES_IMPORT, { filePaths, autoExtract }),
+    rebuildThumbs: (size?: number): Promise<{ rebuilt: number; failed: number; total: number; size: number }> =>
+      ipcRenderer.invoke(IPC.IMAGES_REBUILD_THUMBS, size),
     delete: (id: number): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.IMAGES_DELETE, id),
     getForPrompt: (promptId: number): Promise<ImageRecord[]> =>
@@ -73,6 +75,10 @@ const api = {
   app: {
     getPaths: (): Promise<AppPaths> =>
       ipcRenderer.invoke(IPC.APP_GET_PATHS),
+    getSetting: (key: string): Promise<string | null> =>
+      ipcRenderer.invoke(IPC.APP_GET_SETTING, key),
+    setSetting: (key: string, value: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke(IPC.APP_SET_SETTING, key, value),
   },
 };
 

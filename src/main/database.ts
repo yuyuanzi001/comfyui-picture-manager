@@ -167,22 +167,42 @@ export function resultToObjects<T = Record<string, unknown>>(
   return [];
 }
 
-// Wrapper for SELECT queries that returns typed objects
+// Wrapper for SELECT queries - uses db.exec with manual value interpolation
+// (more reliable than prepare/bind across sql.js versions)
 export function queryAll<T = Record<string, unknown>>(
   sql: string,
   params: any[] = []
 ): T[] {
   const database = getDb();
-  const stmt = database.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
+  // Replace ? with escaped values
+  let idx = 0;
+  const escapedSql = sql.replace(/\?/g, () => {
+    const v = params[idx++];
+    return escapeSqlValue(v);
+  });
+  try {
+    const results = database.exec(escapedSql);
+    if (results.length === 0) return [];
+    const { columns, values } = results[0];
+    return values.map(row => {
+      const obj: any = {};
+      columns.forEach((col, i) => { obj[col] = row[i]; });
+      return obj as T;
+    });
+  } catch (err: any) {
+    console.error('[DB] queryAll failed:', err.message);
+    console.error('[DB] SQL preview:', escapedSql.substring(0, 300));
+    throw err;
   }
-  const rows: T[] = [];
-  while (stmt.step()) {
-    rows.push(stmt.getAsObject() as unknown as T);
+}
+
+function escapeSqlValue(v: any): string {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'number') {
+    if (Number.isInteger(v)) return v.toString();
+    return v.toString();
   }
-  stmt.free();
-  return rows;
+  return `'${String(v).replace(/'/g, "''")}'`;
 }
 
 // Wrapper for SELECT one
@@ -195,17 +215,11 @@ export function queryOne<T = Record<string, unknown>>(
 }
 
 // Wrapper for INSERT/UPDATE/DELETE
-// Uses prepared statements for reliable parameter binding
+// Uses db.run() which handles parameter binding correctly
 export function execute(sql: string, params: any[] = []): { changes: number; lastID: number } {
   const database = getDb();
-  const stmt = database.prepare(sql);
-  if (params.length > 0) {
-    stmt.bind(params);
-  }
-  stmt.step(); // Execute the statement
-  stmt.free();
+  database.run(sql, params);
 
-  // Get last insert rowid for INSERT statements
   let lastID = 0;
   if (sql.trim().toUpperCase().startsWith('INSERT')) {
     const result = database.exec('SELECT last_insert_rowid() as id');

@@ -2,12 +2,8 @@ import { nativeImage } from 'electron';
 import fs from 'fs';
 import path from 'path';
 
-const DEFAULT_THUMB_SIZE = 256;
+const DEFAULT_THUMB_SIZE = 384;
 
-/**
- * Generate a JPEG thumbnail using Electron's native image handling.
- * Returns the relative path for storage in the database.
- */
 export function generateThumbnail(
   sourcePath: string,
   thumbDir: string,
@@ -17,53 +13,58 @@ export function generateThumbnail(
   const thumbName = `${uuid}.jpg`;
   const thumbPath = path.join(thumbDir, thumbName);
 
-  // Read the original image
-  const img = nativeImage.createFromPath(sourcePath);
-
-  if (img.isEmpty()) {
-    throw new Error(`Cannot read image: ${sourcePath}`);
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Source not found: ${sourcePath}`);
   }
 
-  // Get original dimensions
-  const origSize = img.getSize();
-  const aspectRatio = origSize.width / origSize.height;
+  const sourceBuf = fs.readFileSync(sourcePath);
+  if (sourceBuf.length === 0) {
+    throw new Error(`Empty source file: ${sourcePath}`);
+  }
 
+  const img = nativeImage.createFromBuffer(sourceBuf);
+
+  if (img.isEmpty()) {
+    throw new Error(`Cannot decode image: ${sourcePath}`);
+  }
+
+  const origSize = img.getSize();
+
+  // Target: max dimension = size, keep aspect ratio
   let targetWidth: number;
   let targetHeight: number;
 
-  if (origSize.width > origSize.height) {
+  if (origSize.width >= origSize.height) {
     targetWidth = size;
-    targetHeight = Math.round(size / aspectRatio);
+    targetHeight = Math.max(1, Math.round((origSize.height / origSize.width) * size));
   } else {
     targetHeight = size;
-    targetWidth = Math.round(size * aspectRatio);
+    targetWidth = Math.max(1, Math.round((origSize.width / origSize.height) * size));
   }
 
-  // Resize the image
-  const resized = img.resize({
-    width: targetWidth,
-    height: targetHeight,
-    quality: 'good',
-  });
+  let resized: Electron.NativeImage;
+  if (origSize.width <= targetWidth && origSize.height <= targetHeight) {
+    resized = img;
+  } else {
+    resized = img.resize({ width: targetWidth, height: targetHeight, quality: 'best' });
+    if (resized.isEmpty()) {
+      resized = img;
+    }
+  }
 
-  // Convert to JPEG buffer
-  const jpegBuffer = resized.toJPEG(80);
-
-  // Write to disk
+  // Higher quality JPEG for sharper thumbnails
+  const jpegBuffer = resized.toJPEG(92);
   fs.writeFileSync(thumbPath, jpegBuffer);
 
   return `thumbnails/${thumbName}`;
 }
 
-/**
- * Get image dimensions from file.
- */
 export function getImageDimensions(filePath: string): { width: number; height: number } {
   try {
-    const img = nativeImage.createFromPath(filePath);
-    if (img.isEmpty()) {
-      return { width: 0, height: 0 };
-    }
+    if (!fs.existsSync(filePath)) return { width: 0, height: 0 };
+    const buf = fs.readFileSync(filePath);
+    const img = nativeImage.createFromBuffer(buf);
+    if (img.isEmpty()) return { width: 0, height: 0 };
     return img.getSize();
   } catch {
     return { width: 0, height: 0 };

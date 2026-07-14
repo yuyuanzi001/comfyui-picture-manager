@@ -21,6 +21,31 @@ export function registerAllHandlers(): void {
     return getAppPaths(userDataPath);
   });
 
+  // Settings
+  ipcMain.handle(IPC.APP_GET_SETTING, (_event, key: string) => {
+    const row = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', [key]);
+    return row?.value ?? null;
+  });
+
+  ipcMain.handle(IPC.APP_SET_SETTING, (_event, key: string, value: string) => {
+    execute('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    saveDatabase(dbPath());
+
+    // Apply theme to Electron's native theme
+    if (key === 'theme') {
+      const { nativeTheme } = require('electron');
+      if (value === 'dark') {
+        nativeTheme.themeSource = 'dark';
+      } else if (value === 'light') {
+        nativeTheme.themeSource = 'light';
+      } else {
+        nativeTheme.themeSource = 'system';
+      }
+    }
+
+    return { success: true };
+  });
+
   // ---- Dialog ----
   ipcMain.handle(IPC.DIALOG_OPEN_IMAGES, async () => {
     const result = await dialog.showOpenDialog({
@@ -323,11 +348,13 @@ export function registerAllHandlers(): void {
         const stats = fs.statSync(destPath);
         console.log(`[IMPORT] Dimensions: ${dims.width}x${dims.height}, size: ${stats.size}`);
 
-        // Step 4: Generate thumbnail
+        // Step 4: Generate thumbnail (respect size setting)
         let thumbRelPath: string | null = null;
         try {
-          thumbRelPath = generateThumbnail(destPath, thumbnailsDir, uuid);
-          console.log(`[IMPORT] Thumbnail generated: ${thumbRelPath}`);
+          const sizeRow = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['thumbnail_size']);
+          const thumbSize = sizeRow ? parseInt(sizeRow.value) : 256;
+          thumbRelPath = generateThumbnail(destPath, thumbnailsDir, uuid, thumbSize);
+          console.log(`[IMPORT] Thumbnail generated (${thumbSize}px): ${thumbRelPath}`);
         } catch (thumbErr: any) {
           console.error(`[IMPORT] Thumbnail generation failed:`, thumbErr.message);
         }
@@ -437,6 +464,51 @@ export function registerAllHandlers(): void {
     return { success: true };
   });
 
+  // Rebuild all thumbnails
+  ipcMain.handle(IPC.IMAGES_REBUILD_THUMBS, async (_event, sizeOverride?: number) => {
+    const { thumbnailsDir } = getAppPaths(userDataPath);
+    const sizeRow = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['thumbnail_size']);
+    const size = sizeOverride || (sizeRow ? parseInt(sizeRow.value) : 256);
+
+    const images = queryAll<ImageRecord>('SELECT * FROM images');
+    let rebuilt = 0;
+    let failed = 0;
+
+    console.log(`[REBUILD] Rebuilding ${images.length} thumbnails at ${size}px`);
+
+    for (const img of images) {
+      try {
+        const srcPath = path.join(userDataPath, img.file_path);
+        if (!fs.existsSync(srcPath)) {
+          console.log(`[REBUILD] Source missing: ${srcPath}`);
+          failed++;
+          continue;
+        }
+
+        // Delete old thumbnail if exists
+        if (img.thumb_path) {
+          const oldPath = path.join(userDataPath, img.thumb_path);
+          try { fs.unlinkSync(oldPath); } catch {}
+        }
+
+        // Generate new thumbnail
+        const uuid = path.basename(img.file_path, path.extname(img.file_path));
+        const newThumbRelPath = generateThumbnail(srcPath, thumbnailsDir, uuid, size);
+
+        // Update DB
+        execute('UPDATE images SET thumb_path = ? WHERE id = ?', [newThumbRelPath, img.id]);
+        rebuilt++;
+      } catch (err: any) {
+        console.error(`[REBUILD] Failed for image ${img.id}:`, err.message);
+        failed++;
+      }
+    }
+
+    saveDatabase(dbPath());
+    console.log(`[REBUILD] Done: ${rebuilt} rebuilt, ${failed} failed`);
+    return { rebuilt, failed, total: images.length, size };
+  });
+
   ipcMain.handle(IPC.IMAGES_OPEN_FOLDER, async (_event, id: number) => {
     const img = queryOne<ImageRecord>('SELECT * FROM images WHERE id = ?', [id]);
     if (img) {
@@ -449,6 +521,8 @@ export function registerAllHandlers(): void {
 
   // ---- Search ----
   ipcMain.handle(IPC.SEARCH_QUERY, async (_event, params) => {
+    console.log('[SEARCH] params:', JSON.stringify({ query: params.query, tagIds: params.tagIds, page: params.page, sort: params.sort }));
+    try {
     const page = params.page || 1;
     const pageSize = params.pageSize || 48;
     const offset = (page - 1) * pageSize;
@@ -488,6 +562,7 @@ export function registerAllHandlers(): void {
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    console.log('[SEARCH] whereClause:', whereClause, 'bindings count:', bindings.length);
 
     const hasSearchQuery = params.query.trim().length > 0;
     const selectClause = `SELECT p.*, i.thumb_path AS primary_thumb_path, i.file_path AS primary_file_path`;
@@ -527,7 +602,12 @@ export function registerAllHandlers(): void {
       };
     });
 
+    console.log('[SEARCH] returning', total, 'results');
     return { items: enriched, total, page, pageSize, totalPages: Math.ceil(total / pageSize) };
+    } catch (err: any) {
+      console.error('[SEARCH] error:', err.message, err.stack);
+      return { items: [], total: 0, page: params.page || 1, pageSize: params.pageSize || 48, totalPages: 0 };
+    }
   });
 
   ipcMain.handle(IPC.SEARCH_SUGGEST, async (_event, prefix: string) => {

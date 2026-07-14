@@ -1,7 +1,7 @@
 {
-  "name": "comfyui-prompt-manager",
+  "name": "comfyui-picture-manager",
   "version": "1.0.0",
-  "description": "A desktop app to manage ComfyUI prompts, images, and generation parameters",
+  "description": "Local desktop app to manage ComfyUI generated images, prompts, and generation parameters",
   "main": "dist/main/main/index.js",
   "scripts": {
     "dev": "concurrently -n vite,electron \"npm run dev:renderer\" \"npm run dev:electron\"",
@@ -39,8 +39,8 @@
     "@tanstack/react-query": "^5.62.0"
   },
   "build": {
-    "appId": "com.comfyui.prompt-manager",
-    "productName": "ComfyUI Prompt Manager",
+    "appId": "com.comfyui.picture-manager",
+    "productName": "ComfyUI Picture Manager",
     "directories": {
       "output": "release"
     },
