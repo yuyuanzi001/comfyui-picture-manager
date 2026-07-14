@@ -1,13 +1,13 @@
-import { ipcMain, dialog, app, BrowserWindow } from 'electron';
+import { ipcMain, dialog, app, BrowserWindow, nativeImage } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { IPC } from '../../shared/ipc-channels';
-import { getAppPaths, getDataDir, setDataDir } from '../utils/paths';
+import { getAppPaths, getDataDir, setDataDir, ensureDirectories } from '../utils/paths';
 import { queryAll, queryOne, execute, getDb, saveDatabase } from '../database';
 import { generateThumbnail, getImageDimensions } from '../utils/thumbnail';
 import { extractMetadata } from '../utils/png-metadata';
 import { v4 as uuidv4 } from 'uuid';
-import type { Prompt, Tag, ImageRecord, PromptListItem } from '../../shared/types';
+import type { Prompt, Tag, ImageRecord, PromptListItem, ExtractedMetadata } from '../../shared/types';
 
 function dbPath(): string {
   return path.join(getDataDir(), 'prompts.db');
@@ -493,6 +493,58 @@ export function registerAllHandlers(): void {
   });
 
   // Rebuild all thumbnails
+  // Scan images folder for new files
+  ipcMain.handle(IPC.IMAGES_SCAN, async () => {
+    const dataDir = getDataDir();
+    const imagesDir = path.join(dataDir, 'images');
+    if (!fs.existsSync(imagesDir)) return { scanned: 0, imported: 0 };
+
+    const files = fs.readdirSync(imagesDir).filter((f: string) => {
+      const ext = path.extname(f).toLowerCase();
+      return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) && !f.startsWith('.');
+    });
+
+    let imported = 0;
+    for (const f of files) {
+      const srcPath = path.join(imagesDir, f);
+      const relPath = `images/${f}`;
+      const exist = queryAll<{ id: number }>('SELECT id FROM images WHERE file_path = ?', [relPath]);
+      if (exist.length > 0) continue;
+
+      try {
+        const stats = fs.statSync(srcPath);
+        const meta = extractMetadata(srcPath) || { positive: '', negative: '', model: '', sampler: '', steps: 0, cfg: 0, seed: 0, width: 0, height: 0 };
+        const uuid = uuidv4();
+        const storageName = `${uuid}${path.extname(f)}`;
+        const destPath = path.join(imagesDir, storageName);
+        if (path.resolve(srcPath) !== path.resolve(destPath)) fs.copyFileSync(srcPath, destPath);
+
+        let thumbRel = '';
+        try { thumbRel = generateThumbnail(destPath, path.join(dataDir, 'thumbnails'), uuid); } catch {}
+
+        const img = nativeImage.createFromPath(destPath);
+        const dims = img.isEmpty() ? { width: 0, height: 0 } : img.getSize();
+
+        execute(
+          'INSERT INTO prompts (positive, negative, model, sampler, steps, cfg, seed, width, height) VALUES (?,?,?,?,?,?,?,?,?)',
+          [meta.positive, meta.negative, meta.model, meta.sampler, meta.steps, meta.cfg, meta.seed, meta.width || dims.width, meta.height || dims.height]
+        );
+        const row = queryOne<{ id: number }>('SELECT last_insert_rowid() as id');
+        if (row) {
+          execute(
+            'INSERT INTO images (prompt_id, file_name, file_path, thumb_path, width, height, file_size, is_primary) VALUES (?,?,?,?,?,?,?,1)',
+            [row.id, f, `images/${storageName}`, thumbRel, dims.width, dims.height, stats.size]
+          );
+        }
+        saveDatabase(path.join(dataDir, 'prompts.db'));
+        imported++;
+      } catch (err: any) {
+        console.error('[SCAN]', f, err.message);
+      }
+    }
+    return { scanned: files.length, imported };
+  });
+
   ipcMain.handle(IPC.IMAGES_REBUILD_THUMBS, async (_event, sizeOverride?: number) => {
     const { thumbnailsDir } = getAppPaths(getDataDir());
     const sizeRow = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['thumbnail_size']);

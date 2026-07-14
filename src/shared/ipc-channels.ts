@@ -16,6 +16,7 @@ export const IPC = {
 
   // Images
   IMAGES_REBUILD_THUMBS: 'images:rebuildThumbs',
+  IMAGES_SCAN: 'images:scan',
   IMAGES_IMPORT: 'images:import',
   IMAGES_DELETE: 'images:delete',
   IMAGES_GET_FOR_PROMPT: 'images:getForPrompt',

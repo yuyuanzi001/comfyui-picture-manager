@@ -51,6 +51,8 @@ const api = {
       ipcRenderer.invoke(IPC.IMAGES_IMPORT, { filePaths, autoExtract }),
     rebuildThumbs: (size?: number): Promise<{ rebuilt: number; failed: number; total: number; size: number }> =>
       ipcRenderer.invoke(IPC.IMAGES_REBUILD_THUMBS, size),
+    scanImages: (): Promise<{ scanned: number; imported: number }> =>
+      ipcRenderer.invoke(IPC.IMAGES_SCAN),
     delete: (id: number): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.IMAGES_DELETE, id),
     getForPrompt: (promptId: number): Promise<ImageRecord[]> =>

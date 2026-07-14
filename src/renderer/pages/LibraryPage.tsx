@@ -5,6 +5,7 @@ import { PromptCard } from '../components/library/PromptCard';
 import { EmptyState } from '../components/shared/EmptyState';
 import { Spinner } from '../components/shared/Spinner';
 import { Button } from '../components/shared/Button';
+import { showToast } from '../components/shared/Toast';
 import type { PromptListItem, Tag } from '../../shared/types';
 
 const COMMON_RES = ['', '512x512', '512x768', '768x512', '768x768',
@@ -135,7 +136,15 @@ export function LibraryPage() {
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
           图库 <span className="text-sm font-normal text-gray-400">{displayList.length}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
         </h2>
-        <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
+        <div className="flex gap-2">
+          <button onClick={async () => {
+            const r = await getAPI().images.scanImages();
+            if (r.imported > 0) showToast('success', `导入了 ${r.imported} 张新图片`);
+            else showToast('info', '没有新图片');
+            loadAll();
+          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="扫描图片文件夹">↻ 扫描</button>
+          <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
+        </div>
       </div>
 
       {/* Filter row: resolution | model */}
