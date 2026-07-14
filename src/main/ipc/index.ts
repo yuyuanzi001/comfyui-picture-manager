@@ -493,23 +493,37 @@ export function registerAllHandlers(): void {
   });
 
   // Rebuild all thumbnails
-  // Scan images folder for new files
+  // Refresh: scan data dir root for new images (not images/ subfolder, which is managed storage)
   ipcMain.handle(IPC.IMAGES_SCAN, async () => {
     const dataDir = getDataDir();
     const imagesDir = path.join(dataDir, 'images');
-    if (!fs.existsSync(imagesDir)) return { scanned: 0, imported: 0 };
+    ensureDirectories(dataDir);
 
-    const files = fs.readdirSync(imagesDir).filter((f: string) => {
-      const ext = path.extname(f).toLowerCase();
-      return ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) && !f.startsWith('.');
-    });
+    // Only scan dataDir root — this is where users put their files
+    const allFiles: string[] = [];
+    if (fs.existsSync(dataDir)) {
+      for (const f of fs.readdirSync(dataDir)) {
+        const ext = path.extname(f).toLowerCase();
+        // Skip UUID-named files (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.ext), hidden, and non-image
+        if (!['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) continue;
+        if (f.startsWith('.')) continue;
+        // Skip managed copies (UUID format: 8-4-4-4-12 hex chars + ext)
+        const base = f.slice(0, -ext.length);
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(base)) continue;
+        allFiles.push(path.join(dataDir, f));
+      }
+    }
+
+    if (allFiles.length === 0) return { scanned: 0, imported: 0 };
+
+    // Dedup by original filename
+    const existingRows = queryAll<{ file_name: string }>('SELECT file_name FROM images');
+    const existingNames = new Set(existingRows.map(r => r.file_name));
 
     let imported = 0;
-    for (const f of files) {
-      const srcPath = path.join(imagesDir, f);
-      const relPath = `images/${f}`;
-      const exist = queryAll<{ id: number }>('SELECT id FROM images WHERE file_path = ?', [relPath]);
-      if (exist.length > 0) continue;
+    for (const srcPath of allFiles) {
+      const f = path.basename(srcPath);
+      if (existingNames.has(f)) continue;
 
       try {
         const stats = fs.statSync(srcPath);
@@ -517,7 +531,10 @@ export function registerAllHandlers(): void {
         const uuid = uuidv4();
         const storageName = `${uuid}${path.extname(f)}`;
         const destPath = path.join(imagesDir, storageName);
-        if (path.resolve(srcPath) !== path.resolve(destPath)) fs.copyFileSync(srcPath, destPath);
+
+        if (path.resolve(srcPath) !== path.resolve(destPath)) {
+          fs.copyFileSync(srcPath, destPath);
+        }
 
         let thumbRel = '';
         try { thumbRel = generateThumbnail(destPath, path.join(dataDir, 'thumbnails'), uuid); } catch {}
@@ -537,12 +554,13 @@ export function registerAllHandlers(): void {
           );
         }
         saveDatabase(path.join(dataDir, 'prompts.db'));
+        existingNames.add(f);
         imported++;
       } catch (err: any) {
-        console.error('[SCAN]', f, err.message);
+        console.error('[REFRESH]', f, err.message);
       }
     }
-    return { scanned: files.length, imported };
+    return { scanned: allFiles.length, imported };
   });
 
   ipcMain.handle(IPC.IMAGES_REBUILD_THUMBS, async (_event, sizeOverride?: number) => {

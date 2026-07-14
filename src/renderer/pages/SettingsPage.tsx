@@ -116,7 +116,7 @@ export function SettingsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-border">
           <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">数据存储位置</h3>
           <p className="text-xs text-gray-500 mb-2">
-            所有图片、缩略图和数据库存放在此目录。将图片放入 <code className="bg-surface-hover px-1 rounded text-xs">images/</code> 子文件夹即可自动导入。
+            数据库、缩略图、导入的图片存放在此目录。将图片直接放入此目录（根目录），点击图库的「↻ 刷新」即可批量导入。
           </p>
           <div className="flex items-center gap-2">
             <code className="flex-1 px-3 py-2 text-xs border border-border rounded-lg bg-surface text-gray-600 dark:text-gray-400 truncate">

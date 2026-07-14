@@ -89,21 +89,25 @@ function importOneFile(srcPath: string, dataDir: string): boolean {
 }
 
 function scanImagesFolder(dataDir: string): { scanned: number; imported: number } {
-  const imagesDir = path.join(dataDir, 'images');
-  if (!fs.existsSync(imagesDir)) return { scanned: 0, imported: 0 };
+  const allFiles: string[] = [];
 
-  const files = fs.readdirSync(imagesDir).filter(f => {
-    const ext = path.extname(f).toLowerCase();
-    return IMG_EXT.includes(ext) && !f.startsWith('.');
-  });
-
-  let imported = 0;
-  for (const f of files) {
-    const fullPath = path.join(imagesDir, f);
-    if (importOneFile(fullPath, dataDir)) imported++;
+  // Only scan dataDir root (not images/ subfolder)
+  if (fs.existsSync(dataDir)) {
+    for (const f of fs.readdirSync(dataDir)) {
+      if (!IMG_EXT.includes(path.extname(f).toLowerCase())) continue;
+      if (f.startsWith('.')) continue;
+      // Skip UUID-named files
+      const base = f.slice(0, f.lastIndexOf('.'));
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(base)) continue;
+      allFiles.push(path.join(dataDir, f));
+    }
   }
 
-  return { scanned: files.length, imported };
+  let imported = 0;
+  for (const fullPath of allFiles) {
+    if (importOneFile(fullPath, dataDir)) imported++;
+  }
+  return { scanned: allFiles.length, imported };
 }
 
 // ---- Watcher (new files only) ----

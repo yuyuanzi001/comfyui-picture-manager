@@ -142,7 +142,7 @@ export function LibraryPage() {
             if (r.imported > 0) showToast('success', `导入了 ${r.imported} 张新图片`);
             else showToast('info', '没有新图片');
             loadAll();
-          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="扫描图片文件夹">↻ 扫描</button>
+          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="刷新图库">↻ 刷新</button>
           <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
         </div>
       </div>
