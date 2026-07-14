@@ -79,7 +79,10 @@ export function SettingsPage() {
       await api.app.setDataDir(dir);
       const actualDir = await api.app.getDataDir();
       setDataDir(actualDir);
-      showToast('success', '数据目录已更改，重启后生效');
+      showToast('success', '数据目录已更改，数据立即可用（自动导入监控需重启生效）');
+      // Trigger library to reload from new location
+      queryClient.invalidateQueries();
+      navigate('/');
     } catch (err: any) { showToast('error', '更改失败: ' + err.message); }
     finally { setChangingDir(false); }
   };

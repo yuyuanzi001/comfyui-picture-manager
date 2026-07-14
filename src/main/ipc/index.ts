@@ -1,4 +1,4 @@
-import { ipcMain, dialog, app } from 'electron';
+import { ipcMain, dialog, app, BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { IPC } from '../../shared/ipc-channels';
@@ -54,8 +54,18 @@ export function registerAllHandlers(): void {
     const { initDatabase: reInitDb, closeDb: doClose } = require('../database');
     setDataDir(dir);
     doClose();
-    await reInitDb(getDataDir());
-    saveDatabase(path.join(getDataDir(), 'prompts.db'));
+    const newDir = getDataDir();
+    await reInitDb(newDir);
+    saveDatabase(path.join(newDir, 'prompts.db'));
+
+    // Restart file watcher on new location
+    const { ensureDirectories } = require('../utils/paths');
+    ensureDirectories(newDir);
+    const { ipcMain: ipc } = require('electron');
+    // Notify all windows to reload
+    for (const win of BrowserWindow.getAllWindows()) {
+      win.webContents.send('files-changed');
+    }
     return { success: true };
   });
 
