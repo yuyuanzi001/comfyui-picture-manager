@@ -15,12 +15,19 @@
 
 ## 📸 截图
 
-> 截图放在 `screenshots/` 目录下
+### 图库浏览
+![图库](screenshots/01-library.png)
+
+### 导入图片
+![导入](screenshots/03-import.png)
+
+### 详情查看
+![详情](screenshots/02-detail.png)
 
 ## 🚀 快速开始
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/comfyui-picture-manager.git
+git clone https://github.com/yuyuanzi001/comfyui-picture-manager.git
 cd comfyui-picture-manager
 npm install
 npm start
