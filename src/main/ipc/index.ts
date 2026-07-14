@@ -493,34 +493,46 @@ export function registerAllHandlers(): void {
   });
 
   // Rebuild all thumbnails
-  // Refresh: scan data dir root for new images (not images/ subfolder, which is managed storage)
+  // Refresh: clean orphans + scan for new images
   ipcMain.handle(IPC.IMAGES_SCAN, async () => {
     const dataDir = getDataDir();
     const imagesDir = path.join(dataDir, 'images');
+    const thumbDir = path.join(dataDir, 'thumbnails');
     ensureDirectories(dataDir);
 
-    // Only scan dataDir root — this is where users put their files
+    let cleaned = 0;
+
+    // Step 1: remove orphan records (image file gone)
+    const allImgs = queryAll<ImageRecord>('SELECT * FROM images');
+    for (const img of allImgs) {
+      const absPath = path.join(dataDir, img.file_path);
+      if (!fs.existsSync(absPath)) {
+        // Delete orphan: clean thumbnail, DB records (prompt cascade)
+        if (img.thumb_path) try { fs.unlinkSync(path.join(dataDir, img.thumb_path)); } catch {}
+        execute('DELETE FROM images WHERE id = ?', [img.id]);
+        execute('DELETE FROM prompts WHERE id = ?', [img.prompt_id]);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) saveDatabase(path.join(dataDir, 'prompts.db'));
+
+    // Step 2: scan dataDir root for new images
     const allFiles: string[] = [];
     if (fs.existsSync(dataDir)) {
       for (const f of fs.readdirSync(dataDir)) {
         const ext = path.extname(f).toLowerCase();
-        // Skip UUID-named files (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.ext), hidden, and non-image
         if (!['.png', '.jpg', '.jpeg', '.webp'].includes(ext)) continue;
         if (f.startsWith('.')) continue;
-        // Skip managed copies (UUID format: 8-4-4-4-12 hex chars + ext)
         const base = f.slice(0, -ext.length);
         if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(base)) continue;
         allFiles.push(path.join(dataDir, f));
       }
     }
 
-    if (allFiles.length === 0) return { scanned: 0, imported: 0 };
-
-    // Dedup by original filename
-    const existingRows = queryAll<{ file_name: string }>('SELECT file_name FROM images');
-    const existingNames = new Set(existingRows.map(r => r.file_name));
-
+    // Dedup by filename
+    const existingNames = new Set(queryAll<{ file_name: string }>('SELECT file_name FROM images').map(r => r.file_name));
     let imported = 0;
+
     for (const srcPath of allFiles) {
       const f = path.basename(srcPath);
       if (existingNames.has(f)) continue;
@@ -532,12 +544,10 @@ export function registerAllHandlers(): void {
         const storageName = `${uuid}${path.extname(f)}`;
         const destPath = path.join(imagesDir, storageName);
 
-        if (path.resolve(srcPath) !== path.resolve(destPath)) {
-          fs.copyFileSync(srcPath, destPath);
-        }
+        if (path.resolve(srcPath) !== path.resolve(destPath)) fs.copyFileSync(srcPath, destPath);
 
         let thumbRel = '';
-        try { thumbRel = generateThumbnail(destPath, path.join(dataDir, 'thumbnails'), uuid); } catch {}
+        try { thumbRel = generateThumbnail(destPath, thumbDir, uuid); } catch {}
 
         const img = nativeImage.createFromPath(destPath);
         const dims = img.isEmpty() ? { width: 0, height: 0 } : img.getSize();
@@ -547,20 +557,31 @@ export function registerAllHandlers(): void {
           [meta.positive, meta.negative, meta.model, meta.sampler, meta.steps, meta.cfg, meta.seed, meta.width || dims.width, meta.height || dims.height]
         );
         const row = queryOne<{ id: number }>('SELECT last_insert_rowid() as id');
-        if (row) {
-          execute(
-            'INSERT INTO images (prompt_id, file_name, file_path, thumb_path, width, height, file_size, is_primary) VALUES (?,?,?,?,?,?,?,1)',
-            [row.id, f, `images/${storageName}`, thumbRel, dims.width, dims.height, stats.size]
-          );
-        }
+        if (row) execute(
+          'INSERT INTO images (prompt_id, file_name, file_path, thumb_path, width, height, file_size, is_primary) VALUES (?,?,?,?,?,?,?,1)',
+          [row.id, f, `images/${storageName}`, thumbRel, dims.width, dims.height, stats.size]
+        );
         saveDatabase(path.join(dataDir, 'prompts.db'));
         existingNames.add(f);
         imported++;
-      } catch (err: any) {
-        console.error('[REFRESH]', f, err.message);
-      }
+      } catch (err: any) { console.error('[REFRESH]', f, err.message); }
     }
-    return { scanned: allFiles.length, imported };
+
+    // Also fix: regenerate thumbnails for images missing them
+    let fixedThumbs = 0;
+    for (const img of queryAll<ImageRecord>('SELECT * FROM images WHERE thumb_path IS NULL OR thumb_path = ?', [''])) {
+      const srcPath = path.join(dataDir, img.file_path);
+      if (!fs.existsSync(srcPath)) continue;
+      try {
+        const uuid = path.basename(img.file_path, path.extname(img.file_path));
+        const newThumb = generateThumbnail(srcPath, thumbDir, uuid);
+        execute('UPDATE images SET thumb_path = ? WHERE id = ?', [newThumb, img.id]);
+        fixedThumbs++;
+      } catch {}
+    }
+    if (fixedThumbs > 0) saveDatabase(path.join(dataDir, 'prompts.db'));
+
+    return { scanned: allFiles.length, imported, cleaned, fixedThumbs };
   });
 
   ipcMain.handle(IPC.IMAGES_REBUILD_THUMBS, async (_event, sizeOverride?: number) => {

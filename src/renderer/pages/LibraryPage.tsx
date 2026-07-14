@@ -139,8 +139,12 @@ export function LibraryPage() {
         <div className="flex gap-2">
           <button onClick={async () => {
             const r = await getAPI().images.scanImages();
-            if (r.imported > 0) showToast('success', `导入了 ${r.imported} 张新图片`);
-            else showToast('info', '没有新图片');
+            const msgs: string[] = [];
+            if (r.cleaned) msgs.push(`清理 ${r.cleaned} 条失效`);
+            if (r.imported) msgs.push(`导入 ${r.imported} 张新图`);
+            if (r.fixedThumbs) msgs.push(`修复 ${r.fixedThumbs} 张缩略图`);
+            if (msgs.length) showToast('success', msgs.join('，'));
+            else showToast('info', '图库已是最新');
             loadAll();
           }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="刷新图库">↻ 刷新</button>
           <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
