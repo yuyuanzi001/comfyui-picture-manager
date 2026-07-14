@@ -164,7 +164,7 @@ export function SettingsPage() {
         {/* About */}
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-border">
           <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">关于</h3>
-          <p className="text-sm text-gray-500">ComfyUI Picture Manager v1.0.0</p>
+          <p className="text-sm text-gray-500">ComfyUI Picture Manager v1.0.3</p>
           <p className="text-sm text-gray-500">存储和管理你的 AI 生成图片与提示词</p>
         </div>
       </div>
