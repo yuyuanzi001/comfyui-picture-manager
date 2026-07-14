@@ -18,6 +18,7 @@ export function LibraryPage() {
   const allTags = useRef<Tag[]>([]);
   const [displayList, setDisplayList] = useState<PromptListItem[]>([]);
   const [booting, setBooting] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // filters
   const [filterRes, setFilterRes] = useState('');
@@ -148,6 +149,7 @@ export function LibraryPage() {
               if (r.imported) parts.push('导入' + r.imported + '张');
               if (r.fixedThumbs) parts.push('修复' + r.fixedThumbs + '缩略图');
               showToast('success', parts.length ? parts.join(' ') : '无变化');
+              setRefreshKey(k => k + 1); // force thumbnail reload
             } catch (err: any) {
               showToast('error', '刷新失败: ' + (err.message || ''));
             }
@@ -233,7 +235,7 @@ export function LibraryPage() {
       {booting ? <div className="flex-1 flex items-center justify-center"><Spinner className="w-8 h-8 text-blue-500" /></div>
         : allPrompts.current.length === 0 ? <div className="flex-1 flex items-center justify-center"><EmptyState title="还没有图片" description="导入 ComfyUI 生成的图片" actionLabel="导入图片" onAction={() => nav('/import')} /></div>
         : displayList.length === 0 ? <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>无匹配结果</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">清除全部筛选</button></div>
-        : <div className="flex-1 overflow-auto"><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">{displayList.map(p => <PromptCard key={p.id} prompt={p} onClick={() => nav(`/prompt/${p.id}`)} />)}</div></div>}
+        : <div className="flex-1 overflow-auto"><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">{displayList.map(p => <PromptCard key={p.id} prompt={p} refreshKey={refreshKey} onClick={() => nav(`/prompt/${p.id}`)} />)}</div></div>}
     </div>
   );
 }

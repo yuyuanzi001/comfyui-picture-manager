@@ -5,15 +5,17 @@ import { getAPI } from '../../lib/ipc';
 interface PromptCardProps {
   prompt: PromptListItem;
   onClick: () => void;
+  refreshKey?: number;
 }
 
-export function PromptCard({ prompt, onClick }: PromptCardProps) {
+export function PromptCard({ prompt, onClick, refreshKey = 0 }: PromptCardProps) {
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     async function loadThumbnail() {
+      setImageError(false);
       if (prompt.primary_thumb_path) {
         try {
           const images = await getAPI().images.getForPrompt(prompt.id);
@@ -34,7 +36,7 @@ export function PromptCard({ prompt, onClick }: PromptCardProps) {
     }
     loadThumbnail();
     return () => { cancelled = true; };
-  }, [prompt.id, prompt.primary_thumb_path]);
+  }, [prompt.id, prompt.primary_thumb_path, refreshKey]);
 
   const previewText = prompt.positive.length > 100
     ? prompt.positive.substring(0, 100) + '...'
