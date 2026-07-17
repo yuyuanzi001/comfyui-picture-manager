@@ -691,9 +691,7 @@ export function registerAllHandlers(): void {
          LEFT JOIN images i ON i.prompt_id = p.id AND i.is_primary = 1`;
 
     let orderClause: string;
-    if (hasSearchQuery && params.sort === 'relevance') {
-      orderClause = 'ORDER BY rank';
-    } else if (params.sort === 'updated_at') {
+    if (params.sort === 'updated_at') {
       orderClause = 'ORDER BY p.updated_at DESC';
     } else {
       orderClause = 'ORDER BY p.created_at DESC';
