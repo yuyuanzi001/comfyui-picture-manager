@@ -145,12 +145,6 @@ export function LibraryPage() {
     showToast('success', '已复制正面提示词');
     setContextMenu(null);
   };
-  const cmCopyNegative = async () => {
-    const p = getCM(); if (!p) return;
-    await navigator.clipboard.writeText(p.negative);
-    showToast('success', '已复制负面提示词');
-    setContextMenu(null);
-  };
   const cmOpenFolder = async () => {
     const p = getCM(); if (!p || !p.primary_file_path) return;
     try {
@@ -379,13 +373,20 @@ export function LibraryPage() {
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>无匹配结果</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">清除全部筛选</button></div>
       ) : (
         <div className="flex-1 overflow-auto">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
+          <div
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5"
+            onContextMenu={(e) => {
+              if (selectMode) return;
+              const target = (e.target as HTMLElement).closest('[data-prompt-id]');
+              if (!target) return;
+              e.preventDefault();
+              const id = parseInt(target.getAttribute('data-prompt-id')!);
+              const found = displayList.find(p => p.id === id);
+              if (found) setContextMenu({ x: e.clientX, y: e.clientY, prompt: found });
+            }}
+          >
             {displayList.map(p => (
-              <div key={p.id} className="relative" onContextMenu={(e) => {
-                if (selectMode) return;
-                e.preventDefault();
-                setContextMenu({ x: e.clientX, y: e.clientY, prompt: p });
-              }}>
+              <div key={p.id} className="relative" data-prompt-id={p.id}>
                 {selectMode && (
                   <div
                     className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer
@@ -442,9 +443,6 @@ export function LibraryPage() {
           </MenuBtn>
           {contextMenu.prompt.positive && (
             <MenuBtn onClick={cmCopyPositive}>复制正面提示词</MenuBtn>
-          )}
-          {contextMenu.prompt.negative && (
-            <MenuBtn onClick={cmCopyNegative}>复制负面提示词</MenuBtn>
           )}
           <MenuBtn onClick={cmOpenFolder}>打开文件位置</MenuBtn>
           <div className="border-t border-border my-1" />
