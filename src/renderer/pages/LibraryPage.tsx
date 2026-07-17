@@ -10,6 +10,9 @@ import { Modal } from '../components/shared/Modal';
 import { TextInput } from '../components/shared/TextInput';
 import type { PromptListItem, Tag } from '../../shared/types';
 
+// Module-level scroll position — persists across component remounts
+let _savedScrollTop = 0;
+
 const PAGE_SIZE = 48;
 
 export function LibraryPage() {
@@ -26,17 +29,16 @@ export function LibraryPage() {
 
   // filters
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollPos = useRef(0);
 
   // Save scroll before navigating away, restore on return
   const navWithScroll = (path: string) => {
-    if (scrollRef.current) scrollPos.current = scrollRef.current.scrollTop;
+    if (scrollRef.current) _savedScrollTop = scrollRef.current.scrollTop;
     nav(path);
   };
 
   useLayoutEffect(() => {
-    if (scrollRef.current && scrollPos.current > 0) {
-      scrollRef.current.scrollTop = scrollPos.current;
+    if (scrollRef.current && _savedScrollTop > 0) {
+      scrollRef.current.scrollTop = _savedScrollTop;
     }
   }, [displayList]);
 

@@ -306,7 +306,7 @@ export function PromptDetailPage() {
           </div>
 
           {/* Workflow */}
-          {prompt.workflow && (
+          {prompt.workflow?.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
               <button
                 onClick={() => setWorkflowExpanded(!workflowExpanded)}
