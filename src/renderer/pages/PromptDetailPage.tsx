@@ -158,12 +158,46 @@ export function PromptDetailPage() {
                   />
                   <div className="w-full h-full bg-surface-hover" style={{ display: img.thumb_path ? 'none' : 'block' }} />
                 </button>
+          ))}
+
+          {/* Tags */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border mt-4">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">标签</h3>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {prompt.tags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => handleRemoveTag(tag.id)}
+                  className="tag-chip tag-chip-removable text-xs"
+                >
+                  {tag.name} x
+                </button>
               ))}
+              {prompt.tags.length === 0 && (
+                <span className="text-sm text-gray-400">暂无标签</span>
+              )}
             </div>
+            <div className="flex gap-2">
+              <input
+                value={newTagName}
+                onChange={e => setNewTagName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') { handleAddTag(newTagName); }
+                }}
+                placeholder="添加标签..."
+                className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg
+                  bg-surface dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Button size="sm" variant="secondary" onClick={() => handleAddTag(newTagName)}>
+                添加
+              </Button>
+            </div>
+          </div>
+        </div>
           )}
         </div>
 
-        {/* Right: Metadata & Prompts */}
+                {/* Right: Metadata & Prompts */}
         <div className="space-y-4 overflow-auto">
           {/* Generation Parameters */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
@@ -192,7 +226,7 @@ export function PromptDetailPage() {
                 <MetaRow label="Steps" value={prompt.steps} />
                 <MetaRow label="CFG" value={prompt.cfg} />
                 <MetaRow label="Seed" value={prompt.seed} />
-                <MetaRow label="Size" value={`${prompt.width} \u00d7 ${prompt.height}`} />
+                <MetaRow label="Size" value={'${prompt.width} \u00d7 ${prompt.height}'} />
                 <MetaRow label="创建时间" value={formatDate(prompt.created_at)} />
               </div>
             )}
@@ -270,8 +304,6 @@ export function PromptDetailPage() {
             )}
           </div>
 
-          {/* Tags */}
-          <div className="grid gap-4" style={{ gridTemplateColumns: prompt.workflow?.length ? '1fr 1fr' : '1fr' }}>
           {/* Workflow */}
           {prompt.workflow?.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
@@ -294,95 +326,18 @@ export function PromptDetailPage() {
                     <Button size="sm" variant="secondary" onClick={async () => {
                       await navigator.clipboard.writeText(prompt.workflow);
                       setWorkflowCopied(true);
-                      showToast('success', 'Workflow JSON copied');
+                      showToast('success', '已复制');
                       setTimeout(() => setWorkflowCopied(false), 2000);
                     }}>
-                      {workflowCopied ? 'Copied' : 'Copy JSON'}
+                      {workflowCopied ? '已复制' : '复制 JSON'}
                     </Button>
                     <Button size="sm" variant="secondary" onClick={async () => {
                       const api = getAPI();
                       const result = await api.app.saveWorkflowFile(prompt.workflow);
-                      if (result.success) showToast('success', 'Workflow saved');
+                      if (result.success) showToast('success', '已保存');
                       else showToast('error', result.message);
                     }}>
-                      Save to ComfyUI
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">标签</h3>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {prompt.tags.map(tag => (
-                <button
-                  key={tag.id}
-                  onClick={() => handleRemoveTag(tag.id)}
-                  className="tag-chip tag-chip-removable text-xs"
-                >
-                  {tag.name} x
-                </button>
-              ))}
-              {prompt.tags.length === 0 && (
-                <span className="text-sm text-gray-400">暂无标签</span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <input
-                value={newTagName}
-                onChange={e => setNewTagName(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') {
-                    handleAddTag(newTagName);
-                  }
-                }}
-                placeholder="添加标签..."
-                className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg
-                  bg-surface dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <Button size="sm" variant="secondary" onClick={() => handleAddTag(newTagName)}>
-                添加
-              </Button>
-          </div>
-          </div>
-        </div>
-
-          {/* Workflow */}
-          {prompt.workflow?.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
-              <button
-                onClick={() => setWorkflowExpanded(!workflowExpanded)}
-                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900 dark:text-gray-100"
-              >
-                <span>Workflow</span>
-                <svg className={`w-4 h-4 transition-transform ${workflowExpanded ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              {workflowExpanded && (
-                <div className="mt-3 space-y-3">
-                  <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg p-3 max-h-60 overflow-auto whitespace-pre-wrap">
-                    {(() => { try { return JSON.stringify(JSON.parse(prompt.workflow), null, 2); } catch { return prompt.workflow; } })()}
-                  </pre>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="secondary" onClick={async () => {
-                      await navigator.clipboard.writeText(prompt.workflow);
-                      setWorkflowCopied(true);
-                      showToast('success', 'Workflow JSON copied');
-                      setTimeout(() => setWorkflowCopied(false), 2000);
-                    }}>
-                      {workflowCopied ? 'Copied' : 'Copy JSON'}
-                    </Button>
-                    <Button size="sm" variant="secondary" onClick={async () => {
-                      const api = getAPI();
-                      const result = await api.app.saveWorkflowFile(prompt.workflow);
-                      if (result.success) showToast('success', 'Workflow saved');
-                      else showToast('error', result.message);
-                    }}>
-                      Save to ComfyUI
+                      保存到 ComfyUI
                     </Button>
                   </div>
                 </div>
@@ -393,6 +348,7 @@ export function PromptDetailPage() {
       </div>
 
       {/* Delete confirmation modal */}
+{/* Delete confirmation modal */}
       <Modal open={deleteModal} onClose={() => setDeleteModal(false)} title="确认删除" size="sm">
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
           确定要删除这个提示词和关联的图片吗？此操作不可撤销。
