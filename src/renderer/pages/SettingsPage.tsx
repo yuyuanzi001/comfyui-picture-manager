@@ -2,22 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { getAPI } from '../lib/ipc';
-import { useUIStore } from '../lib/store';
 import { showToast } from '../components/shared/Toast';
 import { Button } from '../components/shared/Button';
 import { Spinner } from '../components/shared/Spinner';
 
-function pxToCardSize(px: number): number {
-  if (px <= 128) return 160;
-  if (px <= 256) return 240;
-  if (px <= 384) return 360;
-  return 480;
-}
-
 export function SettingsPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const setThumbDisplay = useUIStore(s => s.setThumbDisplaySize);
   const [thumbSize, setThumbSize] = useState('256');
   const [theme, setTheme] = useState('system');
   const [dataDir, setDataDir] = useState('');
@@ -40,7 +31,6 @@ export function SettingsPage() {
         setTheme(savedTheme || 'system');
         const size = savedThumb || '256';
         setThumbSize(size);
-        setThumbDisplay(pxToCardSize(parseInt(size)));
         setDataDir(savedDir || '');
         setWatchDir(savedWatch || '');
         setLoaded(true);
@@ -49,7 +39,7 @@ export function SettingsPage() {
         setLoaded(true);
       }
     })();
-  }, [setThumbDisplay]);
+  }, []);
 
   const handleThemeChange = async (value: string) => {
     setTheme(value); applyTheme(value);
@@ -58,7 +48,7 @@ export function SettingsPage() {
   };
 
   const handleThumbSizeChange = async (value: string) => {
-    setThumbSize(value); setThumbDisplay(pxToCardSize(parseInt(value)));
+    setThumbSize(value);
     try { await getAPI().app.setSetting('thumbnail_size', value); } catch {}
   };
 
