@@ -71,7 +71,7 @@ app.whenReady().then(async () => {
   startWatching(dataDir);
 
   // Scan existing files on startup
-  scanAndImport(dataDir, dataDir);
+  try { scanAndImport(dataDir, dataDir); } catch (err: any) { console.error('[STARTUP] scan failed:', err.message); }
 
   createWindow();
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });

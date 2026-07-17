@@ -21,6 +21,8 @@ export function LibraryPage() {
   const allTags = useRef<Tag[]>([]);
   const [displayList, setDisplayList] = useState<PromptListItem[]>([]);
   const [booting, setBooting] = useState(true);
+  const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState('created_at');
 
   // Batch selection
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; prompt: PromptListItem } | null>(null);
@@ -204,16 +206,37 @@ export function LibraryPage() {
       }
       return true;
     });
-    setDisplayList(filtered.slice(0, PAGE_SIZE));
+    if (sortBy === 'model') filtered.sort((a, b) => a.model.localeCompare(b.model));
+    else if (sortBy === 'steps') filtered.sort((a, b) => b.steps - a.steps);
+    const start = (page - 1) * PAGE_SIZE;
+    setDisplayList(filtered.slice(start, start + PAGE_SIZE));
     setSelectedIds(new Set());
   };
 
   const setFilter = (which: 'res' | 'model' | 'search' | 'chips', val: any) => {
+    setPage(1);
     if (which === 'res') { setFilterRes(val); applyFilter(searchText, chips, val, filterModel); }
     else if (which === 'model') { setFilterModel(val); applyFilter(searchText, chips, filterRes, val); }
     else if (which === 'search') { setSearchText(val); applyFilter(val, chips, filterRes, filterModel); }
     else if (which === 'chips') { setChips(val); applyFilter(searchText, val, filterRes, filterModel); }
   };
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === 'Escape') {
+        if (contextMenu) { setContextMenu(null); return; }
+        if (selectMode) { clearSelection(); return; }
+        if (searchText || filterRes || filterModel || chips.length > 0) {
+          setFilterRes(''); setFilterModel(''); setSearchText(''); setChips([]); setPage(1);
+        }
+      }
+      if (e.key === 'Delete' && selectMode && selectedIds.size > 0) { batchDelete(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [contextMenu, selectMode, selectedIds, searchText, filterRes, filterModel, chips]);
 
   const addChip = (text: string) => {
     const val = text.trim();
@@ -302,6 +325,12 @@ export function LibraryPage() {
 
       {/* Filter row */}
       <div className="flex items-center gap-2 mb-2">
+        <select value={sortBy} onChange={e => { setSortBy(e.target.value); setPage(1); applyFilter(searchText, chips, filterRes, filterModel); }}
+          className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
+          <option value="created_at">创建时间</option>
+          <option value="model">底模</option>
+          <option value="steps">Steps</option>
+        </select>
         <select value={filterRes} onChange={e => setFilter('res', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
           <option value="">全部尺寸</option>
@@ -382,6 +411,26 @@ export function LibraryPage() {
             className="shrink-0 px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">清除</button>)}
       </div>
 
+      {/* Pagination */}
+      {(() => {
+        const q = searchText.trim().toLowerCase();
+        const cnt = allPrompts.current.filter(p => {
+          if (filterRes) { const [rw, rh] = filterRes.split('x').map(Number); if (p.width !== rw || p.height !== rh) return false; }
+          if (filterModel) { if (p.model !== filterModel) return false; }
+          if (q) { const hay = (p.positive + ' ' + p.negative + ' ' + p.model + ' ' + p.sampler).toLowerCase(); if (!hay.includes(q)) return false; }
+          if (chips.length) { const hay = (p.positive + ' ' + p.negative + ' ' + p.model + ' ' + p.sampler).toLowerCase(); if (!chips.every(c => hay.includes(c.toLowerCase()))) return false; }
+          return true;
+        }).length;
+        const tp = Math.max(1, Math.ceil(cnt / PAGE_SIZE));
+        return tp > 1 ? (
+          <div className="flex items-center justify-center gap-2 my-2">
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}
+              className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-hover disabled:opacity-30">上一页</button>
+            <span className="text-xs text-gray-400">{page} / {tp}</span>
+            <button onClick={() => setPage(p => Math.min(tp, p + 1))} disabled={page >= tp}
+              className="px-2 py-1 text-xs border border-border rounded hover:bg-surface-hover disabled:opacity-30">下一页</button>
+          </div>) : null;
+      })()}
       {/* Content */}
       {booting ? (
         <div className="flex-1 flex items-center justify-center"><Spinner className="w-8 h-8 text-blue-500" /></div>

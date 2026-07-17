@@ -25,6 +25,16 @@ export function PromptDetailPage() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
+  // Keyboard navigation for images
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') setSelectedImage(i => Math.max(0, i - 1));
+      if (e.key === 'ArrowRight') setSelectedImage(i => Math.min((prompt?.images.length || 1) - 1, i + 1));
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [prompt?.images.length]);
+
   const [workflowExpanded, setWorkflowExpanded] = useState(false);
   const [workflowCopied, setWorkflowCopied] = useState(false);
 
