@@ -24,6 +24,8 @@ export function PromptDetailPage() {
   const [deleteModal, setDeleteModal] = useState(false);
   const [newTagName, setNewTagName] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
+  const [workflowExpanded, setWorkflowExpanded] = useState(false);
+  const [workflowCopied, setWorkflowCopied] = useState(false);
 
   if (isLoading) {
     return (
@@ -302,6 +304,47 @@ export function PromptDetailPage() {
               </Button>
             </div>
           </div>
+
+          {/* Workflow */}
+          {prompt.workflow && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
+              <button
+                onClick={() => setWorkflowExpanded(!workflowExpanded)}
+                className="w-full flex items-center justify-between text-sm font-semibold text-gray-900 dark:text-gray-100"
+              >
+                <span>Workflow</span>
+                <svg className={`w-4 h-4 transition-transform ${workflowExpanded ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {workflowExpanded && (
+                <div className="mt-3 space-y-3">
+                  <pre className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900 rounded-lg p-3 max-h-60 overflow-auto whitespace-pre-wrap">
+                    {(() => { try { return JSON.stringify(JSON.parse(prompt.workflow), null, 2); } catch { return prompt.workflow; } })()}
+                  </pre>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="secondary" onClick={async () => {
+                      await navigator.clipboard.writeText(prompt.workflow);
+                      setWorkflowCopied(true);
+                      showToast('success', 'Workflow JSON copied');
+                      setTimeout(() => setWorkflowCopied(false), 2000);
+                    }}>
+                      {workflowCopied ? 'Copied' : 'Copy JSON'}
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={async () => {
+                      const api = getAPI();
+                      const result = await api.app.saveWorkflowFile(prompt.workflow);
+                      if (result.success) showToast('success', 'Workflow saved');
+                      else showToast('error', result.message);
+                    }}>
+                      Save to ComfyUI
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

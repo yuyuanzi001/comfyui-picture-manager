@@ -5,6 +5,7 @@ import { LibraryPage } from './pages/LibraryPage';
 import { PromptDetailPage } from './pages/PromptDetailPage';
 import { ImportPage } from './pages/ImportPage';
 import { SettingsPage, applyTheme } from './pages/SettingsPage';
+import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { ToastContainer } from './components/shared/Toast';
 import { getAPI } from './lib/ipc';
 
@@ -39,6 +40,7 @@ export default function App() {
   }, []);
 
   return (
+    <ErrorBoundary>
     <HashRouter>
       <AppShell>
         <Routes>
@@ -50,5 +52,6 @@ export default function App() {
       </AppShell>
       <ToastContainer />
     </HashRouter>
+    </ErrorBoundary>
   );
 }

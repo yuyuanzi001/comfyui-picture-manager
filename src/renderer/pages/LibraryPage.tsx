@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAPI } from '../lib/ipc';
 import { PromptCard } from '../components/library/PromptCard';
@@ -25,6 +25,21 @@ export function LibraryPage() {
   const [selectMode, setSelectMode] = useState(false);
 
   // filters
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollPos = useRef(0);
+
+  // Save scroll before navigating away, restore on return
+  const navWithScroll = (path: string) => {
+    if (scrollRef.current) scrollPos.current = scrollRef.current.scrollTop;
+    nav(path);
+  };
+
+  useLayoutEffect(() => {
+    if (scrollRef.current && scrollPos.current > 0) {
+      scrollRef.current.scrollTop = scrollPos.current;
+    }
+  }, [displayList]);
+
   const [filterRes, setFilterRes] = useState('');
   const [filterModel, setFilterModel] = useState('');
   const [searchText, setSearchText] = useState('');
@@ -373,7 +388,7 @@ export function LibraryPage() {
       ) : filteredCount === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>无匹配结果</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">清除全部筛选</button></div>
       ) : (
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto" ref={scrollRef}>
           <div
             className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5"
             onContextMenu={(e) => {
@@ -405,7 +420,7 @@ export function LibraryPage() {
                   prompt={p}
                   onClick={() => {
                     if (selectMode) { toggleSelect(p.id); }
-                    else nav(`/prompt/${p.id}`);
+                    else navWithScroll(`/prompt/${p.id}`);
                   }}
                 />
               </div>
