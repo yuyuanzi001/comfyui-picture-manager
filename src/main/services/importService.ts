@@ -19,10 +19,13 @@ export function importOneFile(srcPath: string, dataDir: string, thumbSize?: numb
   if (!IMG_EXT.includes(ext)) return false;
 
   const base = path.basename(srcPath);
-  const existing = queryAll<{ id: number }>(
-    'SELECT id FROM images WHERE file_name = ?', [base]
+  const existing = queryAll<{ id: number; file_path: string }>(
+    'SELECT id, file_path FROM images WHERE file_name = ?', [base]
   );
-  if (existing.length > 0) return false;
+  if (existing.length > 0) {
+    // Only skip if the stored file still exists on disk
+    if (fs.existsSync(path.join(dataDir, existing[0].file_path))) return false;
+  }
 
   const imagesDir = path.join(dataDir, 'images');
 
