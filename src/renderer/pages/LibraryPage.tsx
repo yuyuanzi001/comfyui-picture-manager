@@ -20,6 +20,7 @@ export function LibraryPage() {
   const [booting, setBooting] = useState(true);
 
   // Batch selection
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; prompt: PromptListItem } | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [selectMode, setSelectMode] = useState(false);
 
@@ -45,6 +46,16 @@ export function LibraryPage() {
     allPrompts.current.forEach(p => { if (p.model) s.add(p.model); });
     return [...s].sort();
   }, [displayList]);
+
+  // Close context menu on click outside or Escape
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); };
+  }, [contextMenu]);
 
   const loadAll = async () => {
     const api = getAPI();
@@ -124,6 +135,41 @@ export function LibraryPage() {
       showToast('error', '批量打标签失败: ' + (err.message || ''));
     }
     setBatchTagName('');
+  };
+
+  // Right-click context menu actions
+  const getCM = () => contextMenu?.prompt;
+  const cmCopyPositive = async () => {
+    const p = getCM(); if (!p) return;
+    await navigator.clipboard.writeText(p.positive);
+    showToast('success', '已复制正面提示词');
+    setContextMenu(null);
+  };
+  const cmCopyNegative = async () => {
+    const p = getCM(); if (!p) return;
+    await navigator.clipboard.writeText(p.negative);
+    showToast('success', '已复制负面提示词');
+    setContextMenu(null);
+  };
+  const cmOpenFolder = async () => {
+    const p = getCM(); if (!p || !p.primary_file_path) return;
+    try {
+      const images = await getAPI().images.getForPrompt(p.id);
+      if (images.length > 0) { await getAPI().images.openFolder(images[0].id); }
+    } catch {}
+    setContextMenu(null);
+  };
+  const cmDelete = async () => {
+    const p = getCM(); if (!p) return;
+    if (!window.confirm('确认删除？此操作不可撤销。')) return;
+    try {
+      await getAPI().prompts.delete(p.id);
+      showToast('success', '已删除');
+      await loadAll();
+    } catch (err: any) {
+      showToast('error', '删除失败: ' + (err.message || ''));
+    }
+    setContextMenu(null);
   };
 
   const applyFilter = (kw: string, cs: string[], res: string, mdl: string) => {
@@ -335,7 +381,11 @@ export function LibraryPage() {
         <div className="flex-1 overflow-auto">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
             {displayList.map(p => (
-              <div key={p.id} className="relative">
+              <div key={p.id} className="relative" onContextMenu={(e) => {
+                if (selectMode) return;
+                e.preventDefault();
+                setContextMenu({ x: e.clientX, y: e.clientY, prompt: p });
+              }}>
                 {selectMode && (
                   <div
                     className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer
@@ -381,6 +431,40 @@ export function LibraryPage() {
           <Button onClick={batchTag} disabled={!batchTagName.trim()}>确认</Button>
         </div>
       </Modal>
+      {/* Right-click context menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white dark:bg-gray-800 border border-border rounded-lg shadow-xl py-1 min-w-[160px]"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <MenuBtn onClick={() => { nav(`/prompt/${contextMenu.prompt.id}`); setContextMenu(null); }}>
+            查看详情
+          </MenuBtn>
+          {contextMenu.prompt.positive && (
+            <MenuBtn onClick={cmCopyPositive}>复制正面提示词</MenuBtn>
+          )}
+          {contextMenu.prompt.negative && (
+            <MenuBtn onClick={cmCopyNegative}>复制负面提示词</MenuBtn>
+          )}
+          <MenuBtn onClick={cmOpenFolder}>打开文件位置</MenuBtn>
+          <div className="border-t border-border my-1" />
+          <MenuBtn onClick={cmDelete} danger>删除</MenuBtn>
+        </div>
+      )}
     </div>
+  );
+}
+
+function MenuBtn({ children, onClick, danger }: { children: React.ReactNode; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-1.5 text-sm transition-colors
+        ${danger
+          ? 'text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20'
+          : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}
+    >
+      {children}
+    </button>
   );
 }
