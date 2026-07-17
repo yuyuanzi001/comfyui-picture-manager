@@ -12,10 +12,6 @@ import type { PromptListItem, Tag } from '../../shared/types';
 
 const PAGE_SIZE = 48;
 
-const COMMON_RES = ['', '512x512', '512x768', '768x512', '768x768',
-  '1024x1024', '1280x720', '1920x1080',
-  '1024x1536', '1536x1024', '2048x2048'];
-
 export function LibraryPage() {
   const nav = useNavigate();
   const allPrompts = useRef<PromptListItem[]>([]);
@@ -193,7 +189,23 @@ export function LibraryPage() {
     ? tags.filter(t => t.name.toLowerCase().includes(chipText.toLowerCase()) && !chips.includes(t.name)).slice(0, 6)
     : [];
 
-  const resOptions = [...new Set([...COMMON_RES, ...distinctResolutions])];
+  // Resolutions ranked by frequency, split at 5% threshold
+  const resolutionGroups = useMemo(() => {
+    const total = allPrompts.current.length;
+    const count: Record<string, number> = {};
+    allPrompts.current.forEach(p => {
+      if (p.width && p.height) {
+        const key = `${p.width}x${p.height}`;
+        count[key] = (count[key] || 0) + 1;
+      }
+    });
+    const sorted = Object.entries(count)
+      .sort((a, b) => b[1] - a[1])
+      .map(([res, n]) => ({ res, count: n, pct: n / total }));
+    const primary = sorted.filter(r => r.pct > 0.05);
+    const other = sorted.filter(r => r.pct <= 0.05);
+    return { primary, other };
+  }, [displayList]);
   const filteredCount = displayList.length;
 
   return (
@@ -243,7 +255,16 @@ export function LibraryPage() {
         <select value={filterRes} onChange={e => setFilter('res', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
           <option value="">全部尺寸</option>
-          {resOptions.filter(r => r).map(r => <option key={r} value={r}>{r}</option>)}
+          {resolutionGroups.primary.map(r => (
+            <option key={r.res} value={r.res}>{r.res} ({r.count})</option>
+          ))}
+          {resolutionGroups.other.length > 0 && (
+            <optgroup label="其他 (&lt;5%)">
+              {resolutionGroups.other.map(r => (
+                <option key={r.res} value={r.res}>{r.res} ({r.count})</option>
+              ))}
+            </optgroup>
+          )}
         </select>
         <select value={filterModel} onChange={e => setFilter('model', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400 max-w-[200px] truncate">
