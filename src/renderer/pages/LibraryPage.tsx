@@ -213,6 +213,11 @@ export function LibraryPage() {
     setSelectedIds(new Set());
   };
 
+  // Re-apply filter when page or sort changes
+  useEffect(() => {
+    if (!booting) applyFilter(searchText, chips, filterRes, filterModel);
+  }, [page, sortBy]);
+
   const setFilter = (which: 'res' | 'model' | 'search' | 'chips', val: any) => {
     setPage(1);
     if (which === 'res') { setFilterRes(val); applyFilter(searchText, chips, val, filterModel); }
