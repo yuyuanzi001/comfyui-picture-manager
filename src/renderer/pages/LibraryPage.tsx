@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAPI } from '../lib/ipc';
 import { PromptCard } from '../components/library/PromptCard';
@@ -21,7 +21,10 @@ export function LibraryPage() {
   const [displayList, setDisplayList] = useState<PromptListItem[]>([]);
   const [booting, setBooting] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
+
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
 
   // filters
   const [filterRes, setFilterRes] = useState('');
@@ -51,13 +54,12 @@ export function LibraryPage() {
 
   const loadAll = async () => {
     const api = getAPI();
-    // Load all for filter dropdown population, but paginate the display
     const [p, t] = await Promise.all([api.prompts.list({ pageSize: 9999 }), api.tags.all()]);
     allPrompts.current = p.items;
     allTags.current = t;
-    setTotalCount(p.total);
     setDisplayList(p.items.slice(0, PAGE_SIZE));
     setTags(t);
+    setSelectedIds(new Set());
     setBooting(false);
   };
 
@@ -74,6 +76,56 @@ export function LibraryPage() {
       return () => unsub();
     } catch {}
   }, []);
+
+  // Batch operations
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    setSelectedIds(new Set(displayList.map(p => p.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+    setSelectMode(false);
+  };
+
+  const batchDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!confirm(`Delete ${selectedIds.size} items? This cannot be undone.`)) return;
+    try {
+      await getAPI().prompts.batchDelete([...selectedIds]);
+      showToast('success', `Deleted ${selectedIds.size} items`);
+      await loadAll();
+    } catch (err: any) {
+      showToast('error', 'Batch delete failed: ' + (err.message || ''));
+    }
+  };
+
+  const batchTag = async () => {
+    if (selectedIds.size === 0) return;
+    const tagName = prompt('Enter tag name for ' + selectedIds.size + ' items:');
+    if (!tagName?.trim()) return;
+    try {
+      const api = getAPI();
+      const tag = await api.tags.create(tagName.trim());
+      for (const promptId of selectedIds) {
+        const promptTags = await api.tags.getForPrompt(promptId);
+        const ids = promptTags.map(t => t.id);
+        if (!ids.includes(tag.id)) ids.push(tag.id);
+        await api.tags.setForPrompt(promptId, ids);
+      }
+      showToast('success', `Tagged ${selectedIds.size} items with "${tagName.trim()}"`);
+      await loadAll();
+    } catch (err: any) {
+      showToast('error', 'Batch tag failed: ' + (err.message || ''));
+    }
+  };
 
   const applyFilter = (kw: string, cs: string[], res: string, mdl: string) => {
     const q = kw.trim().toLowerCase();
@@ -96,6 +148,7 @@ export function LibraryPage() {
       return true;
     });
     setDisplayList(filtered.slice(0, PAGE_SIZE));
+    setSelectedIds(new Set());
   };
 
   const setFilter = (which: 'res' | 'model' | 'search' | 'chips', val: any) => {
@@ -131,17 +184,28 @@ export function LibraryPage() {
     : [];
 
   const resOptions = [...new Set([...COMMON_RES, ...distinctResolutions])];
-
-  const hasActiveFilters = filterRes || filterModel || searchText || chips.length > 0;
   const filteredCount = displayList.length;
 
   return (
     <div className="h-full flex flex-col">
+      {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
           Library <span className="text-sm font-normal text-gray-400">{filteredCount}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
         </h2>
         <div className="flex gap-2">
+          {selectMode && (
+            <>
+              <Button variant="ghost" size="sm" onClick={selectAll}>Select All</Button>
+              <Button variant="ghost" size="sm" onClick={clearSelection}>Cancel</Button>
+              <Button variant="danger" size="sm" onClick={batchDelete} disabled={selectedIds.size === 0}>
+                Delete ({selectedIds.size})
+              </Button>
+              <Button variant="secondary" size="sm" onClick={batchTag} disabled={selectedIds.size === 0}>
+                Tag ({selectedIds.size})
+              </Button>
+            </>
+          )}
           <button onClick={async (e) => {
             e.stopPropagation();
             setBooting(true);
@@ -159,11 +223,12 @@ export function LibraryPage() {
             }
             await loadAll();
           }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="Refresh library">Refresh</button>
+          <Button onClick={() => { setSelectMode(true); }} variant="secondary" size="sm">Select</Button>
           <Button onClick={() => nav('/import')} size="sm">+ Import</Button>
         </div>
       </div>
 
-      {/* Filter row: resolution | model */}
+      {/* Filter row */}
       <div className="flex items-center gap-2 mb-2">
         <select value={filterRes} onChange={e => setFilter('res', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
@@ -236,6 +301,7 @@ export function LibraryPage() {
             className="shrink-0 px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">Clear</button>)}
       </div>
 
+      {/* Content */}
       {booting ? (
         <div className="flex-1 flex items-center justify-center"><Spinner className="w-8 h-8 text-blue-500" /></div>
       ) : allPrompts.current.length === 0 ? (
@@ -245,7 +311,31 @@ export function LibraryPage() {
       ) : (
         <div className="flex-1 overflow-auto">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
-            {displayList.map(p => <PromptCard key={p.id} prompt={p} refreshKey={refreshKey} onClick={() => nav(`/prompt/${p.id}`)} />)}
+            {displayList.map(p => (
+              <div key={p.id} className="relative">
+                {selectMode && (
+                  <div
+                    className={`absolute top-2 left-2 z-10 w-5 h-5 rounded border-2 flex items-center justify-center cursor-pointer
+                      ${selectedIds.has(p.id) ? 'bg-blue-500 border-blue-500' : 'bg-white/80 border-gray-400'}`}
+                    onClick={(e) => { e.stopPropagation(); toggleSelect(p.id); }}
+                  >
+                    {selectedIds.has(p.id) && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                )}
+                <PromptCard
+                  prompt={p}
+                  refreshKey={refreshKey}
+                  onClick={() => {
+                    if (selectMode) { toggleSelect(p.id); }
+                    else nav(`/prompt/${p.id}`);
+                  }}
+                />
+              </div>
+            ))}
           </div>
         </div>
       )}

@@ -138,21 +138,26 @@ export function PromptDetailPage() {
           )}
 
           {/* Image thumbnails / carousel */}
-          {images.length > 1 && (
-            <div className="flex gap-2 mt-3">
-              {images.map((img, idx) => (
-                <button
-                  key={img.id}
-                  onClick={() => setSelectedImage(idx)}
-                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
-                    ${idx === selectedImage ? 'border-blue-500' : 'border-transparent'}`}
-                >
-                  {/* Thumbnail placeholder */}
-                  <div className="w-full h-full bg-surface-hover" />
-                </button>
-              ))}
-            </div>
-          )}
+         {images.length > 1 && (
+           <div className="flex gap-2 mt-3">
+             {images.map((img, idx) => (
+               <button
+                 key={img.id}
+                 onClick={() => setSelectedImage(idx)}
+                 className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
+                   ${idx === selectedImage ? 'border-blue-500' : 'border-transparent'}`}
+               >
+                  <img
+                    src={img.thumb_path ? `prompt-image://${img.thumb_path}` : undefined}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                  <div className="w-full h-full bg-surface-hover" style={{ display: img.thumb_path ? 'none' : 'block' }} />
+               </button>
+             ))}
+           </div>
+         )}
         </div>
 
         {/* Right: Metadata & Prompts */}

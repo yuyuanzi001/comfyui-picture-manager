@@ -118,7 +118,17 @@ function startWatching(dataDir: string) {
   ensureDirectories(dataDir);
   if (watcher) watcher.close();
 
-  watcher = chokidar.watch(imagesDir, {
+  // Watch both the managed images dir and any configured ComfyUI output folder
+  const watchPaths: string[] = [imagesDir];
+  try {
+    const wd = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['watch_dir']);
+    if (wd?.value && fs.existsSync(wd.value)) {
+      watchPaths.push(wd.value);
+      console.log('[WATCH] Also watching configured dir:', wd.value);
+    }
+  } catch {}
+
+  watcher = chokidar.watch(watchPaths, {
     ignored: /(^|[/\\])\./, persistent: true, ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 100 },
   });
