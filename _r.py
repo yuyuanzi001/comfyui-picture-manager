@@ -1,4 +1,4 @@
-# ComfyUI Picture Manager
+﻿readme = """# ComfyUI Picture Manager
 
 管理 ComfyUI 生成图片的本地桌面工具。拖入 PNG 就能看到用了什么模型、提示词、参数，还能提取别人的工作流 JSON 直接复用。
 
@@ -68,3 +68,9 @@ Electron 33 / React 19 / TypeScript / Tailwind CSS / SQLite (sql.js) / chokidar
 ## 许可证
 
 GPL-3.0
+"""
+
+dest = r'C:\Users\yuan\Desktop\comfyui-picture-manager\README.md'
+with open(dest, 'w', encoding='utf-8') as f:
+    f.write(readme)
+print('done')
