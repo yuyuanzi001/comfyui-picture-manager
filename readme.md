@@ -1,30 +1,74 @@
-# 🎨 ComfyUI Picture Manager
+# ComfyUI Picture Manager
 
-本地桌面应用，用于管理 ComfyUI 生成的图片和提示词。拖入图片自动解析工作流参数，支持全文搜索、标签分类、分辨率筛选。
+Local desktop app for managing ComfyUI generated images, prompts, and generation parameters.
+Drag & drop PNGs to auto-extract embedded ComfyUI workflow metadata — no setup, fully offline.
 
-## ✨ 功能
+## Features
 
-- 📥 **一键导入** — 点击选择或拖拽 PNG，自动解析 ComfyUI workflow 内嵌参数
-- 🎯 **自动提取** — 读取 PNG tEXt 元数据，提取 model / sampler / steps / CFG / seed / 正负面提示词
-- 🔍 **即时搜索** — 输入关键词即时过滤，点 `+` 输入多个关键词取交集
-- 🏷️ **标签** — 为图片添加标签，搜索时可叠加筛选
-- 📐 **筛选** — 按分辨率、底模下拉框筛选
-- 🖼️ **图库浏览** — 网格卡片 + 缩略图 + 大图查看 + 参数 / 提示词详情
-- 🌓 **主题切换** — 浅色 / 深色 / 跟随系统，即时生效
-- 💾 **纯本地** — 数据存储在 `%APPDATA%\comfyui-picture-manager\`，不联网
+### Import & Metadata Extraction
+- **One-click Import** — Select or drag multiple PNG/JPG/WebP files, auto-copied to managed storage
+- **Workflow Metadata** — Reads PNG `tEXt` chunks to extract model, sampler, steps, CFG, seed, positive/negative prompts
+- **Full Workflow JSON** — The complete ComfyUI workflow JSON is saved and viewable; copy to clipboard or save as `.json` for reuse in ComfyUI
+- **ComfyUI Output Monitoring** — Set your ComfyUI output folder to auto-import newly generated images via `chokidar` file watcher
 
-## 📸 截图
+### Library & Browsing
+- **Grid Card View** — Thumbnails with prompt preview, model name, steps, and resolution
+- **Pagination** — 48 cards per page with Previous/Next controls
+- **Data-driven Resolution Filter** — Resolutions >5% of library appear as primary options, the rest under **Other**
+- **Model Filter** — Dropdown of all distinct models in your library
+- **Instant Search** — Type to filter by keyword across positive prompt, negative prompt, model, sampler
+- **Keyword Chips** — Add multiple `+` chips for AND-intersection filtering; rename or remove chips inline
 
-### 图库浏览
-![图库](screenshots/01-library.png)
+### Detail View
+- **Full-size Image** — Main image + thumbnail carousel for multi-image prompts
+- **Generation Parameters** — Model, sampler, steps, CFG, seed, dimensions, creation time
+- **Prompt Copy Buttons** — One-click copy positive/negative prompts to clipboard
+- **Collapsible Workflow Section** — View formatted JSON, copy to clipboard, or save as `.json` file
+- **Keyboard Navigation** — Left/Right arrow keys to flip through images
+- **Tag Management** — Add/remove tags directly in the detail page
 
-### 导入图片
-![导入](screenshots/03-import.png)
+### Batch Operations
+- **Multi-select Mode** — Checkbox selection on each card, Select All, cancel
+- **Batch Delete** — Delete multiple prompts and their images at once
+- **Batch Tag** — Modal input to tag multiple selected items simultaneously
 
-### 详情查看
-![详情](screenshots/02-detail.png)
+### Right-click Context Menu
+- **View Details** — Jump to prompt detail page
+- **Copy Positive Prompt** — Copy to clipboard directly from the library
+- **Open File Location** — Open the image in Windows Explorer
+- **Delete** — Quick delete with confirmation
 
-## 🚀 快速开始
+### Settings
+- **Data Storage Path** — Change where the database and images are stored
+- **Theme** — Light / Dark / System, instant switch
+- **Thumbnail Size** — 128/256/384/512px, rebuild all thumbnails with progress counter
+- **ComfyUI Output Folder** — Configure watch directory for auto-import
+- **Backup / Export** — Export database + images + thumbnails to any folder
+
+### Technical
+- **Fully Local** — SQLite database (sql.js WASM), no network required
+- **Error Boundary** — Graceful error recovery with reload button
+- **Scroll Preservation** — Returns to the same scroll position when navigating back from detail view
+- **Keyboard Shortcuts** — `Esc` to dismiss context menu / exit select mode / clear filters; `Delete` to batch delete selected
+
+## Screenshots
+
+### Library
+![Library](screenshots/library.png)
+
+### Detail View
+![Detail](screenshots/detail.png)
+
+### Batch Selection
+![Batch](screenshots/batch.png)
+
+### Right-click Context Menu
+![Context Menu](screenshots/context-menu.png)
+
+### Settings
+![Settings](screenshots/settings.png)
+
+## Quick Start
 
 ```bash
 git clone https://github.com/yuyuanzi001/comfyui-picture-manager.git
@@ -33,31 +77,52 @@ npm install
 npm start
 ```
 
-或双击 `启动.bat` 一键启动。
+Or double-click `启动.bat` for one-click build and launch.
 
-**环境要求：** Node.js >= 18，Windows 10/11
+**Requirements**: Node.js >= 18, Windows 10/11
 
-## 🏗️ 技术栈
+## Tech Stack
 
-| 层 | 技术 |
-|---|---|
-| 桌面框架 | Electron |
-| 前端 | React 19 + TypeScript |
-| 样式 | Tailwind CSS |
-| 数据库 | SQLite (sql.js WASM) |
-| 图片处理 | Electron nativeImage |
-| 构建 | Vite + electron-builder (NSIS) |
+| Layer | Technology |
+|-------|-----------|
+| Desktop Framework | Electron 33 |
+| Frontend | React 19 + TypeScript |
+| Styling | Tailwind CSS 3 |
+| State Management | Zustand + React Query |
+| Database | SQLite via sql.js (WASM) |
+| File Watching | chokidar |
+| Image Processing | Electron nativeImage |
+| Build (Main) | TypeScript (tsc) |
+| Build (Renderer) | Vite 6 |
+| Packager | electron-builder (NSIS/dmg/AppImage) |
+| Testing | Vitest (12 unit tests) |
 
-## 📁 项目结构
+## Project Structure
 
 ```
 src/
-├── main/          # Electron 主进程（窗口、数据库、IPC）
-├── preload/       # contextBridge API
-├── renderer/      # React 前端（页面、组件、hooks）
-└── shared/        # 共享类型 & IPC 频道常量
+├── main/               # Electron main process
+│   ├── index.ts        # Window, watcher, startup
+│   ├── database.ts     # SQLite init, migrations, parameterized queries
+│   ├── ipc/
+│   │   ├── index.ts    # Handler registration
+│   │   └── handlers/   # app, prompts, tags, images, search
+│   ├── migrations/     # Database schema migrations
+│   ├── services/       # Shared import logic
+│   └── utils/          # PNG metadata parser, thumbnail generator, paths
+├── preload/            # contextBridge API
+├── renderer/           # React frontend
+│   ├── App.tsx         # Router + theme + ErrorBoundary
+│   ├── components/
+│   │   ├── layout/     # AppShell, Sidebar
+│   │   ├── library/    # PromptCard
+│   │   └── shared/     # Button, Modal, Toast, EmptyState, Spinner, TextInput, ErrorBoundary
+│   ├── hooks/          # usePrompts, useTags
+│   ├── lib/            # IPC client, store
+│   └── pages/          # LibraryPage, PromptDetailPage, ImportPage, SettingsPage
+└── shared/             # TypeScript interfaces & IPC channel constants
 ```
 
-## 📄 协议
+## License
 
-GPL-3.0 License — 详见 [LICENSE](LICENSE)
+GPL-3.0 — see [LICENSE](LICENSE)
