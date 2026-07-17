@@ -64,10 +64,6 @@ export function getAppPaths(dataDir?: string): AppPaths {
   return { userData: d, imagesDir: path.join(d, 'images'), thumbnailsDir: path.join(d, 'thumbnails') };
 }
 
-export function resolveImagePath(dataDir: string, relativePath: string): string {
-  return path.join(dataDir, relativePath);
-}
-
 // ---- internal config (always in default appData) ----
 
 function configPath(): string { return path.join(getDefaultDataDir(), 'config.json'); }

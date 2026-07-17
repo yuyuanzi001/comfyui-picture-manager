@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAPI } from '../lib/ipc';
-import type { ListOptions, CreatePromptDTO, UpdatePromptDTO } from '../../shared/types';
+import type { ListOptions, UpdatePromptDTO } from '../../shared/types';
 
 export function usePromptList(opts: ListOptions = {}) {
   return useQuery({
@@ -14,17 +14,6 @@ export function usePromptDetail(id: number) {
     queryKey: ['prompts', id],
     queryFn: () => getAPI().prompts.get(id),
     enabled: !!id,
-  });
-}
-
-export function useCreatePrompt() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (dto: CreatePromptDTO) => getAPI().prompts.create(dto),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['prompts'] });
-      queryClient.invalidateQueries({ queryKey: ['tags'] });
-    },
   });
 }
 

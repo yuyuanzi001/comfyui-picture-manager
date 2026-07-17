@@ -4,10 +4,9 @@ import type { PromptListItem } from '../../../shared/types';
 interface PromptCardProps {
   prompt: PromptListItem;
   onClick: () => void;
-  refreshKey?: number;
 }
 
-export function PromptCard({ prompt, onClick, refreshKey = 0 }: PromptCardProps) {
+export function PromptCard({ prompt, onClick }: PromptCardProps) {
   const [imageError, setImageError] = useState(false);
 
   // Construct direct URL from primary_thumb_path (returned by list query)

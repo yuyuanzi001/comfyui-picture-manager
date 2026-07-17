@@ -92,7 +92,7 @@ export interface SearchParams {
   model?: string;
   page?: number;
   pageSize?: number;
-  sort?: 'relevance' | 'created_at' | 'updated_at';
+  sort?: 'created_at' | 'updated_at';
 }
 
 export interface PaginatedResult<T> {

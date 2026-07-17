@@ -17,3 +17,7 @@ export function useSuggestions(prefix: string) {
     enabled: prefix.length >= 1,
   });
 }
+// NOTE: useSearch and useSuggestions are not used by any component.
+// LibraryPage implements its own client-side filtering.
+// Keep for potential future server-side search integration.
+/*

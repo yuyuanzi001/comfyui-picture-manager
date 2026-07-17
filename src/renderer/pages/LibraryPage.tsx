@@ -18,7 +18,6 @@ export function LibraryPage() {
   const allTags = useRef<Tag[]>([]);
   const [displayList, setDisplayList] = useState<PromptListItem[]>([]);
   const [booting, setBooting] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -44,12 +43,6 @@ export function LibraryPage() {
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
     allPrompts.current.forEach(p => { if (p.model) s.add(p.model); });
-    return [...s].sort();
-  }, [displayList]);
-
-  const distinctResolutions = useMemo(() => {
-    const s = new Set<string>();
-    allPrompts.current.forEach(p => { if (p.width && p.height) s.add(`${p.width}x${p.height}`); });
     return [...s].sort();
   }, [displayList]);
 
@@ -239,7 +232,6 @@ export function LibraryPage() {
               if (r.imported) parts.push('导入' + r.imported + '张');
               if (r.fixedThumbs) parts.push('修复' + r.fixedThumbs + '缩略图');
               showToast('success', parts.length ? parts.join(' ') : '无变化');
-              setRefreshKey(k => k + 1);
             } catch (err: any) {
               showToast('error', '刷新失败: ' + (err.message || ''));
             }
@@ -359,7 +351,6 @@ export function LibraryPage() {
                 )}
                 <PromptCard
                   prompt={p}
-                  refreshKey={refreshKey}
                   onClick={() => {
                     if (selectMode) { toggleSelect(p.id); }
                     else nav(`/prompt/${p.id}`);
