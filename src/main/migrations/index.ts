@@ -69,6 +69,11 @@ INSERT OR IGNORE INTO settings (key, value) VALUES ('thumbnail_size', '256');
 INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'system');
 `;
 
+const M002 = `
+ALTER TABLE prompts ADD COLUMN workflow TEXT NOT DEFAULT '';
+`;
+
 export const MIGRATIONS: Migration[] = [
   { name: '001_initial', sql: M001 },
+  { name: '002_workflow', sql: M002 },
 ];

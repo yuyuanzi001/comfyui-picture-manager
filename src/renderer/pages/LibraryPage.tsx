@@ -43,9 +43,10 @@ export function LibraryPage() {
 
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
+    // Always show all available models, not just filtered subset
     allPrompts.current.forEach(p => { if (p.model) s.add(p.model); });
     return [...s].sort();
-  }, [displayList]);
+  }, [allPrompts.current.length]);
 
   // Close context menu on click outside or Escape
   useEffect(() => {

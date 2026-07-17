@@ -14,18 +14,11 @@ const noMeta: ExtractedMetadata = {
   steps: 0, cfg: 0, seed: 0, width: 0, height: 0,
 };
 
-/**
- * Import a single image file into the managed storage.
- * Copies the file, extracts metadata, generates thumbnail, inserts into DB.
- * Returns true if successfully imported.
- */
-export function importOneFile(srcPath: string, dataDir: string): boolean {
+export function importOneFile(srcPath: string, dataDir: string, thumbSize?: number): boolean {
   const ext = path.extname(srcPath).toLowerCase();
   if (!IMG_EXT.includes(ext)) return false;
 
   const base = path.basename(srcPath);
-
-  // Dedup by original filename
   const existing = queryAll<{ id: number }>(
     'SELECT id FROM images WHERE file_name = ?', [base]
   );
@@ -46,15 +39,15 @@ export function importOneFile(srcPath: string, dataDir: string): boolean {
 
     let thumbRel = '';
     try {
-      thumbRel = generateThumbnail(destPath, path.join(dataDir, 'thumbnails'), uuid);
+      thumbRel = generateThumbnail(destPath, path.join(dataDir, 'thumbnails'), uuid, thumbSize || 256);
     } catch {}
 
     const img = nativeImage.createFromPath(destPath);
     const dims = img.isEmpty() ? { width: 0, height: 0 } : img.getSize();
 
     execute(
-      'INSERT INTO prompts (positive, negative, model, sampler, steps, cfg, seed, width, height) VALUES (?,?,?,?,?,?,?,?,?)',
-      [meta.positive, meta.negative, meta.model, meta.sampler, meta.steps, meta.cfg, meta.seed, meta.width || dims.width, meta.height || dims.height]
+      'INSERT INTO prompts (positive, negative, model, sampler, steps, cfg, seed, width, height, workflow) VALUES (?,?,?,?,?,?,?,?,?,?)',
+      [meta.positive, meta.negative, meta.model, meta.sampler, meta.steps, meta.cfg, meta.seed, meta.width || dims.width, meta.height || dims.height, meta.workflow || '']
     );
     const row = queryOne<{ id: number }>('SELECT last_insert_rowid() as id');
     if (row) {
@@ -71,17 +64,38 @@ export function importOneFile(srcPath: string, dataDir: string): boolean {
   }
 }
 
-/** Check if a filename is a UUID-based storage name (to skip re-importing managed copies). */
 export function isUuidFilename(name: string): boolean {
   const dotIdx = name.lastIndexOf('.');
   const base = dotIdx > 0 ? name.slice(0, dotIdx) : name;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(base);
 }
 
-/**
- * Scan a directory for new image files and import them.
- * Used by startup scan and the refresh IPC handler.
- */
+export function importFiles(
+  filePaths: string[],
+  dataDir: string,
+  thumbSize?: number
+): { importedCount: number; errors: Array<{ fileName: string; error: string }> } {
+  const errors: Array<{ fileName: string; error: string }> = [];
+  let importedCount = 0;
+
+  for (const srcPath of filePaths) {
+    try {
+      const base = path.basename(srcPath);
+      if (!fs.existsSync(srcPath)) {
+        errors.push({ fileName: base, error: 'Source file not found' });
+        continue;
+      }
+      if (importOneFile(srcPath, dataDir, thumbSize)) {
+        importedCount++;
+      }
+    } catch (err: any) {
+      errors.push({ fileName: path.basename(srcPath), error: err.message || 'Unknown error' });
+    }
+  }
+
+  return { importedCount, errors };
+}
+
 export function scanAndImport(dir: string, dataDir: string): { scanned: number; imported: number } {
   const files: string[] = [];
   if (fs.existsSync(dir)) {

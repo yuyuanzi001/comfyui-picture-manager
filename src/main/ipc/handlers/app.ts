@@ -109,4 +109,20 @@ export function registerAppHandlers(): void {
       return { success: false, message: err.message || 'Export failed' };
     }
   });
+
+  // Save workflow JSON to a file chosen by user
+  ipcMain.handle(IPC.APP_SAVE_WORKFLOW, async (_event, json: string) => {
+    const result = await dialog.showSaveDialog({
+      filters: [{ name: 'ComfyUI Workflow', extensions: ['json'] }],
+      defaultPath: 'workflow.json',
+      title: 'Save workflow for ComfyUI',
+    });
+    if (result.canceled || !result.filePath) return { success: false, message: 'Cancelled' };
+    try {
+      fs.writeFileSync(result.filePath, json, 'utf-8');
+      return { success: true, message: 'Workflow saved', path: result.filePath };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Save failed' };
+    }
+  });
 }

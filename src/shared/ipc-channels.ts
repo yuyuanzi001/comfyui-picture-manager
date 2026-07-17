@@ -41,4 +41,5 @@ export const IPC = {
   APP_GET_DATA_DIR: 'app:getDataDir',
   APP_OPEN_PATH: 'app:openPath',
   APP_EXPORT_DATA: 'app:exportData',
+  APP_SAVE_WORKFLOW: 'app:saveWorkflow',
 } as const;

@@ -4,9 +4,10 @@ import fs from 'fs';
 import { IPC } from '../../../shared/ipc-channels';
 import { getAppPaths, getDataDir, ensureDirectories } from '../../utils/paths';
 import { queryAll, queryOne, execute, saveDatabase } from '../../database';
-import { generateThumbnail, getImageDimensions } from '../../utils/thumbnail';
+import { generateThumbnail } from '../../utils/thumbnail';
 import { extractMetadata } from '../../utils/png-metadata';
 import { v4 as uuidv4 } from 'uuid';
+import { importFiles, IMG_EXT } from '../../services/importService';
 import type { ImageRecord } from '../../../shared/types';
 
 function dbPath(): string {
@@ -15,71 +16,12 @@ function dbPath(): string {
 
 export function registerImageHandlers(): void {
   ipcMain.handle(IPC.IMAGES_IMPORT, async (_event, req) => {
-    const { filePaths, autoExtract } = req;
-    const { imagesDir, thumbnailsDir } = getAppPaths(getDataDir());
-    const errors: Array<{ fileName: string; error: string }> = [];
-    let importedCount = 0;
-
-    for (const srcPath of filePaths) {
-      const baseName = path.basename(srcPath);
-      try {
-        if (!fs.existsSync(srcPath)) throw new Error(`Source file not found: ${srcPath}`);
-
-        const uuid = uuidv4();
-        const ext = path.extname(srcPath).toLowerCase() || '.png';
-        const storageName = `${uuid}${ext}`;
-        const destPath = path.join(imagesDir, storageName);
-
-        fs.copyFileSync(srcPath, destPath);
-
-        let metadata: any = {};
-        if (autoExtract !== false) {
-          try {
-            const extracted = extractMetadata(destPath);
-            if (extracted) metadata = extracted;
-          } catch {}
-        }
-
-        const dims = getImageDimensions(destPath);
-        const stats = fs.statSync(destPath);
-
-        let thumbRelPath: string | null = null;
-        try {
-          const sizeRow = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['thumbnail_size']);
-          const thumbSize = sizeRow ? parseInt(sizeRow.value) : 256;
-          thumbRelPath = generateThumbnail(destPath, thumbnailsDir, uuid, thumbSize);
-        } catch (thumbErr: any) {
-          console.error('[IMPORT] Thumbnail generation failed:', thumbErr.message);
-        }
-
-        execute(
-          `INSERT INTO prompts (positive, negative, model, sampler, steps, cfg, seed, width, height)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [metadata.positive || '', metadata.negative || '', metadata.model || '',
-           metadata.sampler || '', metadata.steps || 0, metadata.cfg || 0,
-           metadata.seed || 0, metadata.width || dims.width, metadata.height || dims.height]
-        );
-
-        const lastRow = queryOne<{ id: number }>('SELECT last_insert_rowid() as id');
-        const promptId = lastRow?.id || 0;
-
-        if (!promptId) throw new Error('Failed to get prompt ID after insert');
-
-        execute(
-          `INSERT INTO images (prompt_id, file_name, file_path, thumb_path, width, height, file_size, is_primary)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-          [promptId, baseName, `images/${storageName}`, thumbRelPath || '', dims.width, dims.height, stats.size]
-        );
-
-        importedCount++;
-      } catch (err: any) {
-        errors.push({ fileName: baseName, error: err.message || 'Unknown error' });
-      }
-    }
-
+    const dataDir = getDataDir();
+    const sizeRow = queryOne<{ value: string }>('SELECT value FROM settings WHERE key = ?', ['thumbnail_size']);
+    const thumbSize = sizeRow ? parseInt(sizeRow.value) : 256;
+    const result = importFiles(req.filePaths, dataDir, thumbSize);
     try { saveDatabase(dbPath()); } catch {}
-
-    return { importedCount, errors };
+    return result;
   });
 
   ipcMain.handle(IPC.IMAGES_DELETE, async (_event, id: number) => {
@@ -108,7 +50,7 @@ export function registerImageHandlers(): void {
     const thumbPath = path.join(getDataDir(), img.thumb_path);
     if (fs.existsSync(thumbPath)) {
       const data = fs.readFileSync(thumbPath);
-      return `data:image/jpeg;base64,${data.toString('base64')}`;
+      return 'data:image/jpeg;base64,' + data.toString('base64');
     }
     return null;
   });
@@ -173,7 +115,7 @@ export function registerImageHandlers(): void {
         const stats = fs.statSync(srcPath);
         const meta = extractMetadata(srcPath) || { positive: '', negative: '', model: '', sampler: '', steps: 0, cfg: 0, seed: 0, width: 0, height: 0 };
         const uuid = uuidv4();
-        const storageName = `${uuid}${path.extname(f)}`;
+        const storageName = uuid + path.extname(f);
         const destPath = path.join(imagesDir, storageName);
 
         if (path.resolve(srcPath) !== path.resolve(destPath)) fs.copyFileSync(srcPath, destPath);
@@ -191,7 +133,7 @@ export function registerImageHandlers(): void {
         const row = queryOne<{ id: number }>('SELECT last_insert_rowid() as id');
         if (row) execute(
           'INSERT INTO images (prompt_id, file_name, file_path, thumb_path, width, height, file_size, is_primary) VALUES (?,?,?,?,?,?,?,1)',
-          [row.id, f, `images/${storageName}`, thumbRel, dims.width, dims.height, stats.size]
+          [row.id, f, 'images/' + storageName, thumbRel, dims.width, dims.height, stats.size]
         );
         existingNames.add(f);
         imported++;
@@ -222,8 +164,15 @@ export function registerImageHandlers(): void {
     const images = queryAll<ImageRecord>('SELECT * FROM images');
     let rebuilt = 0;
     let failed = 0;
+    const total = images.length;
 
-    for (const img of images) {
+    // Send initial progress
+    for (const win of require('electron').BrowserWindow.getAllWindows()) {
+      win.webContents.send('rebuild-progress', { rebuilt: 0, failed: 0, total });
+    }
+
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i];
       try {
         const srcPath = path.join(getDataDir(), img.file_path);
         if (!fs.existsSync(srcPath)) { failed++; continue; }
@@ -236,6 +185,13 @@ export function registerImageHandlers(): void {
         const newThumbRelPath = generateThumbnail(srcPath, thumbnailsDir, uuid, size);
         execute('UPDATE images SET thumb_path = ? WHERE id = ?', [newThumbRelPath, img.id]);
         rebuilt++;
+
+        // Send progress every 10 images or on last one
+        if (rebuilt % 10 === 0 || i === images.length - 1) {
+          for (const win of require('electron').BrowserWindow.getAllWindows()) {
+            win.webContents.send('rebuild-progress', { rebuilt, failed, total });
+          }
+        }
       } catch { failed++; }
     }
 

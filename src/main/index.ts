@@ -11,7 +11,7 @@ import { importOneFile, scanAndImport, isUuidFilename } from './services/importS
 let mainWindow: BrowserWindow | null = null;
 let watcher: FSWatcher | null = null;
 
-const isDev = process.argv.includes('--dev') || process.env.NODE_ENV === 'development';
+const isDev = !app.isPackaged;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({

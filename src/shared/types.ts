@@ -9,6 +9,7 @@ export interface Prompt {
   steps: number;
   cfg: number;
   seed: number;
+  workflow: string;
   width: number;
   height: number;
   notes: string;
@@ -76,6 +77,7 @@ export interface UpdatePromptDTO {
   width?: number;
   height?: number;
   notes?: string;
+  workflow?: string;
 }
 
 export interface ListOptions {
