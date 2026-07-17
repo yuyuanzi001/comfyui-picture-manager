@@ -6,6 +6,8 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { Spinner } from '../components/shared/Spinner';
 import { Button } from '../components/shared/Button';
 import { showToast } from '../components/shared/Toast';
+import { Modal } from '../components/shared/Modal';
+import { TextInput } from '../components/shared/TextInput';
 import type { PromptListItem, Tag } from '../../shared/types';
 
 const PAGE_SIZE = 48;
@@ -39,6 +41,9 @@ export function LibraryPage() {
   const [renameIdx, setRenameIdx] = useState<number | null>(null);
   const [renameText, setRenameText] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
+  // Batch tag modal
+  const [tagModalOpen, setTagModalOpen] = useState(false);
+  const [batchTagName, setBatchTagName] = useState('');
 
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
@@ -96,7 +101,7 @@ export function LibraryPage() {
 
   const batchDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`确认删除 ${selectedIds.size} 条记录？此操作不可撤销。`)) return;
+    if (!window.confirm(`确认删除 ${selectedIds.size} 条记录？此操作不可撤销。`)) return;
     try {
       await getAPI().prompts.batchDelete([...selectedIds]);
       showToast('success', `已删除 ${selectedIds.size} 条`);
@@ -106,24 +111,30 @@ export function LibraryPage() {
     }
   };
 
-  const batchTag = async () => {
+  const openTagModal = () => {
     if (selectedIds.size === 0) return;
-    const tagName = prompt('为 ' + selectedIds.size + ' 条记录添加标签:');
-    if (!tagName?.trim()) return;
+    setBatchTagName('');
+    setTagModalOpen(true);
+  };
+
+  const batchTag = async () => {
+    if (!batchTagName.trim()) return;
+    setTagModalOpen(false);
     try {
       const api = getAPI();
-      const tag = await api.tags.create(tagName.trim());
+      const tag = await api.tags.create(batchTagName.trim());
       for (const promptId of selectedIds) {
         const promptTags = await api.tags.getForPrompt(promptId);
         const ids = promptTags.map(t => t.id);
         if (!ids.includes(tag.id)) ids.push(tag.id);
         await api.tags.setForPrompt(promptId, ids);
       }
-      showToast('success', `已为 ${selectedIds.size} 条记录添加标签 "${tagName.trim()}"`);
+      showToast('success', `已为 ${selectedIds.size} 条记录添加标签 "${batchTagName.trim()}"`);
       await loadAll();
     } catch (err: any) {
       showToast('error', '批量打标签失败: ' + (err.message || ''));
     }
+    setBatchTagName('');
   };
 
   const applyFilter = (kw: string, cs: string[], res: string, mdl: string) => {
@@ -200,7 +211,7 @@ export function LibraryPage() {
               <Button variant="danger" size="sm" onClick={batchDelete} disabled={selectedIds.size === 0}>
                 删除 ({selectedIds.size})
               </Button>
-              <Button variant="secondary" size="sm" onClick={batchTag} disabled={selectedIds.size === 0}>
+              <Button variant="secondary" size="sm" onClick={openTagModal} disabled={selectedIds.size === 0}>
                 标签 ({selectedIds.size})
               </Button>
             </>
@@ -338,6 +349,26 @@ export function LibraryPage() {
           </div>
         </div>
       )}
+      {/* Batch tag modal */}
+      <Modal open={tagModalOpen} onClose={() => setTagModalOpen(false)} title="批量添加标签" size="sm">
+        <p className="text-xs text-gray-500 mb-3">
+          为选中的 {selectedIds.size} 条记录添加标签
+        </p>
+        <input
+          value={batchTagName}
+          onChange={e => setBatchTagName(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') batchTag(); if (e.key === 'Escape') setTagModalOpen(false); }}
+          placeholder="输入标签名..."
+          autoFocus
+          className="w-full px-3 py-2 text-sm border border-border rounded-lg
+            bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100
+            focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+        />
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={() => setTagModalOpen(false)}>取消</Button>
+          <Button onClick={batchTag} disabled={!batchTagName.trim()}>确认</Button>
+        </div>
+      </Modal>
     </div>
   );
 }
