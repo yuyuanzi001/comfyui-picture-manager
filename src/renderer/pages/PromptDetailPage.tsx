@@ -197,7 +197,25 @@ export function PromptDetailPage() {
 
           {/* Positive Prompt */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
-            <h3 className="text-sm font-semibold text-green-600 dark:text-green-400 mb-2">正面提示词</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-green-600 dark:text-green-400">正面提示词</h3>
+              {!editing && prompt.positive && (
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(prompt.positive);
+                    showToast('success', '已复制');
+                  }}
+                  className="text-xs text-gray-400 hover:text-green-500 transition-colors flex items-center gap-1"
+                  title="复制正面提示词"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  复制
+                </button>
+              )}
+            </div>
             {editing ? (
               <textarea
                 value={editForm.positive || ''}
@@ -215,7 +233,25 @@ export function PromptDetailPage() {
 
           {/* Negative Prompt */}
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
-            <h3 className="text-sm font-semibold text-red-600 dark:text-red-400 mb-2">负面提示词</h3>
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">负面提示词</h3>
+              {!editing && prompt.negative && (
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(prompt.negative);
+                    showToast('success', '已复制');
+                  }}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                  title="复制负面提示词"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  复制
+                </button>
+              )}
+            </div>
             {editing ? (
               <textarea
                 value={editForm.negative || ''}
