@@ -22,7 +22,6 @@ export function LibraryPage() {
   const [displayList, setDisplayList] = useState<PromptListItem[]>([]);
   const [booting, setBooting] = useState(true);
   const [page, setPage] = useState(1);
-  const [sortBy, setSortBy] = useState('created_at');
 
   // Batch selection
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; prompt: PromptListItem } | null>(null);
@@ -206,8 +205,6 @@ export function LibraryPage() {
       }
       return true;
     });
-    if (sortBy === 'model') filtered.sort((a, b) => a.model.localeCompare(b.model));
-    else if (sortBy === 'steps') filtered.sort((a, b) => b.steps - a.steps);
     const start = (page - 1) * PAGE_SIZE;
     setDisplayList(filtered.slice(start, start + PAGE_SIZE));
     setSelectedIds(new Set());
@@ -216,7 +213,7 @@ export function LibraryPage() {
   // Re-apply filter when page or sort changes
   useEffect(() => {
     if (!booting) applyFilter(searchText, chips, filterRes, filterModel);
-  }, [page, sortBy]);
+  }, [page]);
 
   const setFilter = (which: 'res' | 'model' | 'search' | 'chips', val: any) => {
     setPage(1);
@@ -330,12 +327,6 @@ export function LibraryPage() {
 
       {/* Filter row */}
       <div className="flex items-center gap-2 mb-2">
-        <select value={sortBy} onChange={e => { setSortBy(e.target.value); setPage(1); applyFilter(searchText, chips, filterRes, filterModel); }}
-          className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
-          <option value="created_at">创建时间</option>
-          <option value="model">底模</option>
-          <option value="steps">Steps</option>
-        </select>
         <select value={filterRes} onChange={e => setFilter('res', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
           <option value="">全部尺寸</option>
