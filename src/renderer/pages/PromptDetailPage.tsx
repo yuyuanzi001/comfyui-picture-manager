@@ -226,7 +226,7 @@ export function PromptDetailPage() {
                 <MetaRow label="Steps" value={prompt.steps} />
                 <MetaRow label="CFG" value={prompt.cfg} />
                 <MetaRow label="Seed" value={prompt.seed} />
-                <MetaRow label="Size" value={'${prompt.width} \u00d7 ${prompt.height}'} />
+                <MetaRow label="Size" value={`${prompt.width} × ${prompt.height}`} />
                 <MetaRow label="创建时间" value={formatDate(prompt.created_at)} />
               </div>
             )}
