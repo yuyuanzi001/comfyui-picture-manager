@@ -77,7 +77,6 @@ export function LibraryPage() {
     } catch {}
   }, []);
 
-  // Batch operations
   const toggleSelect = (id: number) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -97,19 +96,19 @@ export function LibraryPage() {
 
   const batchDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!confirm(`Delete ${selectedIds.size} items? This cannot be undone.`)) return;
+    if (!confirm(`确认删除 ${selectedIds.size} 条记录？此操作不可撤销。`)) return;
     try {
       await getAPI().prompts.batchDelete([...selectedIds]);
-      showToast('success', `Deleted ${selectedIds.size} items`);
+      showToast('success', `已删除 ${selectedIds.size} 条`);
       await loadAll();
     } catch (err: any) {
-      showToast('error', 'Batch delete failed: ' + (err.message || ''));
+      showToast('error', '批量删除失败: ' + (err.message || ''));
     }
   };
 
   const batchTag = async () => {
     if (selectedIds.size === 0) return;
-    const tagName = prompt('Enter tag name for ' + selectedIds.size + ' items:');
+    const tagName = prompt('为 ' + selectedIds.size + ' 条记录添加标签:');
     if (!tagName?.trim()) return;
     try {
       const api = getAPI();
@@ -120,10 +119,10 @@ export function LibraryPage() {
         if (!ids.includes(tag.id)) ids.push(tag.id);
         await api.tags.setForPrompt(promptId, ids);
       }
-      showToast('success', `Tagged ${selectedIds.size} items with "${tagName.trim()}"`);
+      showToast('success', `已为 ${selectedIds.size} 条记录添加标签 "${tagName.trim()}"`);
       await loadAll();
     } catch (err: any) {
-      showToast('error', 'Batch tag failed: ' + (err.message || ''));
+      showToast('error', '批量打标签失败: ' + (err.message || ''));
     }
   };
 
@@ -191,18 +190,18 @@ export function LibraryPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-          Library <span className="text-sm font-normal text-gray-400">{filteredCount}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
+          图库 <span className="text-sm font-normal text-gray-400">{filteredCount}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
         </h2>
         <div className="flex gap-2">
           {selectMode && (
             <>
-              <Button variant="ghost" size="sm" onClick={selectAll}>Select All</Button>
-              <Button variant="ghost" size="sm" onClick={clearSelection}>Cancel</Button>
+              <Button variant="ghost" size="sm" onClick={selectAll}>全选</Button>
+              <Button variant="ghost" size="sm" onClick={clearSelection}>取消</Button>
               <Button variant="danger" size="sm" onClick={batchDelete} disabled={selectedIds.size === 0}>
-                Delete ({selectedIds.size})
+                删除 ({selectedIds.size})
               </Button>
               <Button variant="secondary" size="sm" onClick={batchTag} disabled={selectedIds.size === 0}>
-                Tag ({selectedIds.size})
+                标签 ({selectedIds.size})
               </Button>
             </>
           )}
@@ -213,18 +212,18 @@ export function LibraryPage() {
               const api = getAPI();
               const r = await api.images.scanImages();
               const parts: string[] = [];
-              if (r.cleaned) parts.push('cleaned ' + r.cleaned);
-              if (r.imported) parts.push('imported ' + r.imported);
-              if (r.fixedThumbs) parts.push('fixed ' + r.fixedThumbs + ' thumbs');
-              showToast('success', parts.length ? parts.join(' ') : 'No changes');
+              if (r.cleaned) parts.push('清理' + r.cleaned + '条');
+              if (r.imported) parts.push('导入' + r.imported + '张');
+              if (r.fixedThumbs) parts.push('修复' + r.fixedThumbs + '缩略图');
+              showToast('success', parts.length ? parts.join(' ') : '无变化');
               setRefreshKey(k => k + 1);
             } catch (err: any) {
-              showToast('error', 'Refresh failed: ' + (err.message || ''));
+              showToast('error', '刷新失败: ' + (err.message || ''));
             }
             await loadAll();
-          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="Refresh library">Refresh</button>
-          <Button onClick={() => { setSelectMode(true); }} variant="secondary" size="sm">Select</Button>
-          <Button onClick={() => nav('/import')} size="sm">+ Import</Button>
+          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="刷新图库">刷新</button>
+          <Button onClick={() => { setSelectMode(true); }} variant="secondary" size="sm">选择</Button>
+          <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
         </div>
       </div>
 
@@ -232,17 +231,17 @@ export function LibraryPage() {
       <div className="flex items-center gap-2 mb-2">
         <select value={filterRes} onChange={e => setFilter('res', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
-          <option value="">All sizes</option>
+          <option value="">全部尺寸</option>
           {resOptions.filter(r => r).map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={filterModel} onChange={e => setFilter('model', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400 max-w-[200px] truncate">
-          <option value="">All models</option>
+          <option value="">全部底模</option>
           {distinctModels.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
         {(filterRes || filterModel) && (
           <button onClick={() => { setFilterRes(''); setFilterModel(''); applyFilter(searchText, chips, '', ''); }}
-            className="text-xs text-gray-400 hover:text-gray-600 shrink-0">Clear filters</button>
+            className="text-xs text-gray-400 hover:text-gray-600 shrink-0">清除筛选</button>
         )}
       </div>
 
@@ -250,7 +249,7 @@ export function LibraryPage() {
       <div className="flex items-center gap-1 mb-2 overflow-x-auto flex-nowrap pb-1">
         <input value={searchText}
           onChange={e => setFilter('search', e.target.value)}
-          placeholder="Search..."
+          placeholder="搜索..."
           className="w-44 shrink-0 px-2 py-1.5 text-sm border-2 border-blue-200 rounded-lg
                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                      placeholder-gray-400 focus:outline-none focus:border-blue-400" />
@@ -265,7 +264,7 @@ export function LibraryPage() {
           <div className="relative shrink-0">
             <input ref={addRef} value={chipText} onChange={e => setChipText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addChip(chipText); if (e.key === 'Escape') { setShowAdd(false); setChipText(''); } }}
-              placeholder="keyword..."
+              placeholder="关键词..."
               className="w-28 px-2 py-1.5 text-sm border-2 border-blue-400 rounded-lg
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none" />
             <button onClick={() => { setShowAdd(false); setChipText(''); }}
@@ -298,16 +297,16 @@ export function LibraryPage() {
 
         {chips.length > 0 && (
           <button onClick={() => setFilter('chips', [])}
-            className="shrink-0 px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">Clear</button>)}
+            className="shrink-0 px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">清除</button>)}
       </div>
 
       {/* Content */}
       {booting ? (
         <div className="flex-1 flex items-center justify-center"><Spinner className="w-8 h-8 text-blue-500" /></div>
       ) : allPrompts.current.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center"><EmptyState title="No images yet" description="Import ComfyUI generated images" actionLabel="Import Images" onAction={() => nav('/import')} /></div>
+        <div className="flex-1 flex items-center justify-center"><EmptyState title="还没有图片" description="导入 ComfyUI 生成的图片" actionLabel="导入图片" onAction={() => nav('/import')} /></div>
       ) : filteredCount === 0 ? (
-        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>No matching results</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">Clear all filters</button></div>
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>无匹配结果</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">清除全部筛选</button></div>
       ) : (
         <div className="flex-1 overflow-auto">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">

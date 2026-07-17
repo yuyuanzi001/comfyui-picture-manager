@@ -36,7 +36,7 @@ export function PromptDetailPage() {
   if (!prompt) {
     return (
       <div className="h-full flex items-center justify-center text-gray-400">
-        Prompt not found
+        未找到该提示词记录
       </div>
     );
   }
@@ -133,20 +133,20 @@ export function PromptDetailPage() {
             </div>
           ) : (
             <div className="aspect-square bg-surface-hover rounded-xl flex items-center justify-center text-gray-400">
-              <p>No image</p>
+              <p>无图片</p>
             </div>
           )}
 
-          {/* Image thumbnails / carousel */}
-         {images.length > 1 && (
-           <div className="flex gap-2 mt-3">
-             {images.map((img, idx) => (
-               <button
-                 key={img.id}
-                 onClick={() => setSelectedImage(idx)}
-                 className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
-                   ${idx === selectedImage ? 'border-blue-500' : 'border-transparent'}`}
-               >
+          {/* Image thumbnails */}
+          {images.length > 1 && (
+            <div className="flex gap-2 mt-3">
+              {images.map((img, idx) => (
+                <button
+                  key={img.id}
+                  onClick={() => setSelectedImage(idx)}
+                  className={`w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors
+                    ${idx === selectedImage ? 'border-blue-500' : 'border-transparent'}`}
+                >
                   <img
                     src={img.thumb_path ? `prompt-image://${img.thumb_path}` : undefined}
                     alt=""
@@ -154,10 +154,10 @@ export function PromptDetailPage() {
                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                   <div className="w-full h-full bg-surface-hover" style={{ display: img.thumb_path ? 'none' : 'block' }} />
-               </button>
-             ))}
-           </div>
-         )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right: Metadata & Prompts */}
@@ -189,8 +189,8 @@ export function PromptDetailPage() {
                 <MetaRow label="Steps" value={prompt.steps} />
                 <MetaRow label="CFG" value={prompt.cfg} />
                 <MetaRow label="Seed" value={prompt.seed} />
-                <MetaRow label="Size" value={`${prompt.width} × ${prompt.height}`} />
-                <MetaRow label="Created" value={formatDate(prompt.created_at)} />
+                <MetaRow label="Size" value={`${prompt.width} \u00d7 ${prompt.height}`} />
+                <MetaRow label="创建时间" value={formatDate(prompt.created_at)} />
               </div>
             )}
           </div>
@@ -208,7 +208,7 @@ export function PromptDetailPage() {
             ) : (
               <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed
                 max-h-40 overflow-y-auto">
-                {prompt.positive || <span className="text-gray-400 italic">Empty</span>}
+                {prompt.positive || <span className="text-gray-400 italic">空</span>}
               </p>
             )}
           </div>
@@ -226,7 +226,7 @@ export function PromptDetailPage() {
             ) : (
               <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap leading-relaxed
                 max-h-24 overflow-y-auto">
-                {prompt.negative || <span className="text-gray-400 italic">Empty</span>}
+                {prompt.negative || <span className="text-gray-400 italic">空</span>}
               </p>
             )}
           </div>
@@ -241,7 +241,7 @@ export function PromptDetailPage() {
                   onClick={() => handleRemoveTag(tag.id)}
                   className="tag-chip tag-chip-removable text-xs"
                 >
-                  {tag.name} ×
+                  {tag.name} x
                 </button>
               ))}
               {prompt.tags.length === 0 && (

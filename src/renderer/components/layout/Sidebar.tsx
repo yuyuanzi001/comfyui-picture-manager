@@ -13,14 +13,12 @@ export function Sidebar() {
 
   return (
     <aside className="w-60 h-full flex flex-col bg-surface border-r border-border select-none">
-      {/* App Title */}
       <div className="h-12 flex items-center px-4 border-b border-border titlebar-drag">
         <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-          🎨 Picture Manager
+          Picture Manager
         </h1>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1">
         <NavLink to="/" end className={linkClass}>
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -46,7 +44,6 @@ export function Sidebar() {
         </NavLink>
       </nav>
 
-      {/* Quick import button */}
       <div className="p-3 border-t border-border">
         <button
           onClick={() => navigate('/import')}
