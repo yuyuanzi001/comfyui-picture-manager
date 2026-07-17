@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { PromptListItem } from '../../../shared/types';
-import { getAPI } from '../../lib/ipc';
 
 interface PromptCardProps {
   prompt: PromptListItem;
@@ -9,34 +8,13 @@ interface PromptCardProps {
 }
 
 export function PromptCard({ prompt, onClick, refreshKey = 0 }: PromptCardProps) {
-  const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [imageError, setImageError] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function loadThumbnail() {
-      setImageError(false);
-      if (prompt.primary_thumb_path) {
-        try {
-          const images = await getAPI().images.getForPrompt(prompt.id);
-          if (!cancelled && images.length > 0) {
-            const thumbData = await getAPI().images.getThumbnail(images[0].id);
-            if (!cancelled && thumbData) {
-              setThumbnail(thumbData);
-            } else {
-              setImageError(true);
-            }
-          }
-        } catch {
-          if (!cancelled) setImageError(true);
-        }
-      } else {
-        setImageError(true);
-      }
-    }
-    loadThumbnail();
-    return () => { cancelled = true; };
-  }, [prompt.id, prompt.primary_thumb_path, refreshKey]);
+  // Construct direct URL from primary_thumb_path (returned by list query)
+  // Avoids 2 extra IPC roundtrips (getForPrompt + getThumbnail)
+  const thumbUrl = prompt.primary_thumb_path
+    ? `prompt-image://${prompt.primary_thumb_path}`
+    : null;
 
   const previewText = prompt.positive.length > 100
     ? prompt.positive.substring(0, 100) + '...'
@@ -44,11 +22,10 @@ export function PromptCard({ prompt, onClick, refreshKey = 0 }: PromptCardProps)
 
   return (
     <div className="prompt-card group" onClick={onClick}>
-      {/* Thumbnail — natural aspect ratio, not forced square */}
       <div className="w-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden">
-        {thumbnail && !imageError ? (
+        {thumbUrl && !imageError ? (
           <img
-            src={thumbnail}
+            src={thumbUrl}
             alt={previewText}
             className="w-full h-auto object-contain max-h-[300px]"
             loading="lazy"
@@ -65,18 +42,16 @@ export function PromptCard({ prompt, onClick, refreshKey = 0 }: PromptCardProps)
         )}
       </div>
 
-      {/* Info */}
       <div className="p-3 space-y-1.5">
         <p className="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 leading-relaxed">
           {previewText || <span className="text-gray-400 italic">No prompt</span>}
         </p>
-
         <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">
           {[
             prompt.model && `Model: ${prompt.model.split('\\').pop()?.split('/').pop()}`,
             prompt.steps > 0 && `Steps: ${prompt.steps}`,
-            `${prompt.width}×${prompt.height}`,
-          ].filter(Boolean).join(' · ')}
+            `${prompt.width}\u00d7${prompt.height}`,
+          ].filter(Boolean).join(' \u00b7 ')}
         </p>
       </div>
     </div>

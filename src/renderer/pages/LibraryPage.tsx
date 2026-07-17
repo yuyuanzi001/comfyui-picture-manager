@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getAPI } from '../lib/ipc';
 import { PromptCard } from '../components/library/PromptCard';
@@ -7,6 +7,8 @@ import { Spinner } from '../components/shared/Spinner';
 import { Button } from '../components/shared/Button';
 import { showToast } from '../components/shared/Toast';
 import type { PromptListItem, Tag } from '../../shared/types';
+
+const PAGE_SIZE = 48;
 
 const COMMON_RES = ['', '512x512', '512x768', '768x512', '768x768',
   '1024x1024', '1280x720', '1920x1080',
@@ -19,6 +21,7 @@ export function LibraryPage() {
   const [displayList, setDisplayList] = useState<PromptListItem[]>([]);
   const [booting, setBooting] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
 
   // filters
   const [filterRes, setFilterRes] = useState('');
@@ -34,12 +37,11 @@ export function LibraryPage() {
   const [renameText, setRenameText] = useState('');
   const [tags, setTags] = useState<Tag[]>([]);
 
-  // derived: distinct models & resolutions in data
   const distinctModels = useMemo(() => {
     const s = new Set<string>();
     allPrompts.current.forEach(p => { if (p.model) s.add(p.model); });
     return [...s].sort();
-  }, [displayList]); // recalc on reload
+  }, [displayList]);
 
   const distinctResolutions = useMemo(() => {
     const s = new Set<string>();
@@ -49,18 +51,18 @@ export function LibraryPage() {
 
   const loadAll = async () => {
     const api = getAPI();
+    // Load all for filter dropdown population, but paginate the display
     const [p, t] = await Promise.all([api.prompts.list({ pageSize: 9999 }), api.tags.all()]);
     allPrompts.current = p.items;
     allTags.current = t;
-    setDisplayList(p.items);
+    setTotalCount(p.total);
+    setDisplayList(p.items.slice(0, PAGE_SIZE));
     setTags(t);
-    applyFilter(searchText, chips, filterRes, filterModel);
     setBooting(false);
   };
 
   useEffect(() => { loadAll(); }, []);
 
-  // Listen for auto-imported files
   useEffect(() => {
     const handler = () => {
       console.log('[Library] files-changed, reloading');
@@ -93,7 +95,7 @@ export function LibraryPage() {
       }
       return true;
     });
-    setDisplayList(filtered);
+    setDisplayList(filtered.slice(0, PAGE_SIZE));
   };
 
   const setFilter = (which: 'res' | 'model' | 'search' | 'chips', val: any) => {
@@ -128,14 +130,16 @@ export function LibraryPage() {
     ? tags.filter(t => t.name.toLowerCase().includes(chipText.toLowerCase()) && !chips.includes(t.name)).slice(0, 6)
     : [];
 
-  // Gather all resolution options
   const resOptions = [...new Set([...COMMON_RES, ...distinctResolutions])];
+
+  const hasActiveFilters = filterRes || filterModel || searchText || chips.length > 0;
+  const filteredCount = displayList.length;
 
   return (
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <h2 className="text-lg font-bold text-gray-900 dark:text-gray-100">
-          图库 <span className="text-sm font-normal text-gray-400">{displayList.length}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
+          Library <span className="text-sm font-normal text-gray-400">{filteredCount}{allPrompts.current.length ? `/${allPrompts.current.length}` : ''}</span>
         </h2>
         <div className="flex gap-2">
           <button onClick={async (e) => {
@@ -145,17 +149,17 @@ export function LibraryPage() {
               const api = getAPI();
               const r = await api.images.scanImages();
               const parts: string[] = [];
-              if (r.cleaned) parts.push('清理' + r.cleaned + '条');
-              if (r.imported) parts.push('导入' + r.imported + '张');
-              if (r.fixedThumbs) parts.push('修复' + r.fixedThumbs + '缩略图');
-              showToast('success', parts.length ? parts.join(' ') : '无变化');
-              setRefreshKey(k => k + 1); // force thumbnail reload
+              if (r.cleaned) parts.push('cleaned ' + r.cleaned);
+              if (r.imported) parts.push('imported ' + r.imported);
+              if (r.fixedThumbs) parts.push('fixed ' + r.fixedThumbs + ' thumbs');
+              showToast('success', parts.length ? parts.join(' ') : 'No changes');
+              setRefreshKey(k => k + 1);
             } catch (err: any) {
-              showToast('error', '刷新失败: ' + (err.message || ''));
+              showToast('error', 'Refresh failed: ' + (err.message || ''));
             }
             await loadAll();
-          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="刷新图库">↻ 刷新</button>
-          <Button onClick={() => nav('/import')} size="sm">+ 导入</Button>
+          }} className="p-2 rounded-lg border border-border text-gray-400 hover:text-gray-600 text-sm" title="Refresh library">Refresh</button>
+          <Button onClick={() => nav('/import')} size="sm">+ Import</Button>
         </div>
       </div>
 
@@ -163,17 +167,17 @@ export function LibraryPage() {
       <div className="flex items-center gap-2 mb-2">
         <select value={filterRes} onChange={e => setFilter('res', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400">
-          <option value="">全部尺寸</option>
+          <option value="">All sizes</option>
           {resOptions.filter(r => r).map(r => <option key={r} value={r}>{r}</option>)}
         </select>
         <select value={filterModel} onChange={e => setFilter('model', e.target.value)}
           className="px-2 py-1.5 text-xs border border-border rounded-lg bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 focus:outline-none focus:border-blue-400 max-w-[200px] truncate">
-          <option value="">全部底模</option>
+          <option value="">All models</option>
           {distinctModels.map(m => <option key={m} value={m}>{m}</option>)}
         </select>
         {(filterRes || filterModel) && (
           <button onClick={() => { setFilterRes(''); setFilterModel(''); applyFilter(searchText, chips, '', ''); }}
-            className="text-xs text-gray-400 hover:text-gray-600 shrink-0">清除筛选</button>
+            className="text-xs text-gray-400 hover:text-gray-600 shrink-0">Clear filters</button>
         )}
       </div>
 
@@ -181,7 +185,7 @@ export function LibraryPage() {
       <div className="flex items-center gap-1 mb-2 overflow-x-auto flex-nowrap pb-1">
         <input value={searchText}
           onChange={e => setFilter('search', e.target.value)}
-          placeholder="搜索..."
+          placeholder="Search..."
           className="w-44 shrink-0 px-2 py-1.5 text-sm border-2 border-blue-200 rounded-lg
                      bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
                      placeholder-gray-400 focus:outline-none focus:border-blue-400" />
@@ -196,11 +200,11 @@ export function LibraryPage() {
           <div className="relative shrink-0">
             <input ref={addRef} value={chipText} onChange={e => setChipText(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') addChip(chipText); if (e.key === 'Escape') { setShowAdd(false); setChipText(''); } }}
-              placeholder="关键词..."
+              placeholder="keyword..."
               className="w-28 px-2 py-1.5 text-sm border-2 border-blue-400 rounded-lg
                          bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 focus:outline-none" />
             <button onClick={() => { setShowAdd(false); setChipText(''); }}
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">x</button>
             {sugg.length > 0 && (
               <div className="absolute z-20 top-full mt-1 left-0 bg-white dark:bg-gray-800 border border-border rounded-lg shadow-lg w-40 overflow-hidden">
                 {sugg.map(t => <button key={t.id}
@@ -222,20 +226,29 @@ export function LibraryPage() {
             <button key={i} onClick={() => startRename(i)}
               className="shrink-0 px-2 py-1.5 rounded-lg text-sm border border-blue-200 bg-blue-50 dark:bg-blue-900/20 text-blue-600 hover:border-red-300">
               {c}
-              <span onClick={e => { e.stopPropagation(); removeChip(i); }} className="ml-1 text-gray-400 hover:text-red-500 text-xs">✕</span>
+              <span onClick={e => { e.stopPropagation(); removeChip(i); }} className="ml-1 text-gray-400 hover:text-red-500 text-xs">x</span>
             </button>
           );
         })}
 
         {chips.length > 0 && (
           <button onClick={() => setFilter('chips', [])}
-            className="shrink-0 px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">清除</button>)}
+            className="shrink-0 px-2 py-1.5 text-xs text-gray-400 hover:text-gray-600">Clear</button>)}
       </div>
 
-      {booting ? <div className="flex-1 flex items-center justify-center"><Spinner className="w-8 h-8 text-blue-500" /></div>
-        : allPrompts.current.length === 0 ? <div className="flex-1 flex items-center justify-center"><EmptyState title="还没有图片" description="导入 ComfyUI 生成的图片" actionLabel="导入图片" onAction={() => nav('/import')} /></div>
-        : displayList.length === 0 ? <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>无匹配结果</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">清除全部筛选</button></div>
-        : <div className="flex-1 overflow-auto"><div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">{displayList.map(p => <PromptCard key={p.id} prompt={p} refreshKey={refreshKey} onClick={() => nav(`/prompt/${p.id}`)} />)}</div></div>}
+      {booting ? (
+        <div className="flex-1 flex items-center justify-center"><Spinner className="w-8 h-8 text-blue-500" /></div>
+      ) : allPrompts.current.length === 0 ? (
+        <div className="flex-1 flex items-center justify-center"><EmptyState title="No images yet" description="Import ComfyUI generated images" actionLabel="Import Images" onAction={() => nav('/import')} /></div>
+      ) : filteredCount === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-2 text-sm text-gray-400"><p>No matching results</p><button onClick={() => { setFilterRes(''); setFilterModel(''); setSearchText(''); setFilter('chips', []); }} className="text-blue-500 hover:underline text-xs">Clear all filters</button></div>
+      ) : (
+        <div className="flex-1 overflow-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-2.5">
+            {displayList.map(p => <PromptCard key={p.id} prompt={p} refreshKey={refreshKey} onClick={() => nav(`/prompt/${p.id}`)} />)}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
