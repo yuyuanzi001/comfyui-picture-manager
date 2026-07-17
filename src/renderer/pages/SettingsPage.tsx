@@ -17,6 +17,7 @@ export function SettingsPage() {
   const [rebuilding, setRebuilding] = useState(false);
   const [changingDir, setChangingDir] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [rebuildProgress, setRebuildProgress] = useState<{ rebuilt: number; failed: number; total: number } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -52,8 +53,23 @@ export function SettingsPage() {
     try { await getAPI().app.setSetting('thumbnail_size', value); } catch {}
   };
 
+  // Listen for thumbnail rebuild progress
+  useEffect(() => {
+    try {
+      const api = getAPI();
+      const unsub = api.onRebuildProgress((data) => {
+        setRebuildProgress(data);
+        if (data.rebuilt + data.failed >= data.total) {
+          setTimeout(() => setRebuildProgress(null), 3000);
+        }
+      });
+      return () => unsub();
+    } catch {}
+  }, []);
+
   const handleRebuildThumbs = async () => {
     if (rebuilding) return; setRebuilding(true);
+    setRebuildProgress({ rebuilt: 0, failed: 0, total: 0 });
     try {
       const r = await getAPI().images.rebuildThumbs();
       queryClient.clear();
@@ -203,7 +219,11 @@ export function SettingsPage() {
               <option value="512">512px</option>
             </select>
             <Button variant="primary" size="sm" onClick={handleRebuildThumbs} disabled={rebuilding}>
-              {rebuilding ? <span className="flex items-center gap-2"><Spinner className="w-3.5 h-3.5" /> 重建中...</span> : '应用到全部'}
+              {rebuilding
+                ? (rebuildProgress && rebuildProgress.total > 0
+                    ? <span>重建中... {rebuildProgress.rebuilt}/{rebuildProgress.total}</span>
+                    : <span className="flex items-center gap-2"><Spinner className="w-3.5 h-3.5" /> 重建中...</span>)
+                : '应用到全部'}
             </Button>
           </div>
         </div>
