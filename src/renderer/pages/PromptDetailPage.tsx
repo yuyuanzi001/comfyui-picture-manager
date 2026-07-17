@@ -232,78 +232,6 @@ export function PromptDetailPage() {
             )}
           </div>
 
-          {/* Positive Prompt */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-green-600 dark:text-green-400">正面提示词</h3>
-              {!editing && prompt.positive && (
-                <button
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(prompt.positive);
-                    showToast('success', '已复制');
-                  }}
-                  className="text-xs text-gray-400 hover:text-green-500 transition-colors flex items-center gap-1"
-                  title="复制正面提示词"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  复制
-                </button>
-              )}
-            </div>
-            {editing ? (
-              <textarea
-                value={editForm.positive || ''}
-                onChange={e => setEditForm(f => ({ ...f, positive: e.target.value }))}
-                rows={4}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-900 text-sm resize-y"
-              />
-            ) : (
-              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed
-                max-h-40 overflow-y-auto">
-                {prompt.positive || <span className="text-gray-400 italic">空</span>}
-              </p>
-            )}
-          </div>
-
-          {/* Negative Prompt */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">负面提示词</h3>
-              {!editing && prompt.negative && (
-                <button
-                  onClick={async () => {
-                    await navigator.clipboard.writeText(prompt.negative);
-                    showToast('success', '已复制');
-                  }}
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
-                  title="复制负面提示词"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                  </svg>
-                  复制
-                </button>
-              )}
-            </div>
-            {editing ? (
-              <textarea
-                value={editForm.negative || ''}
-                onChange={e => setEditForm(f => ({ ...f, negative: e.target.value }))}
-                rows={3}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-900 text-sm resize-y"
-              />
-            ) : (
-              <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap leading-relaxed
-                max-h-24 overflow-y-auto">
-                {prompt.negative || <span className="text-gray-400 italic">空</span>}
-              </p>
-            )}
-          </div>
-
           {/* Workflow */}
           {prompt.workflow?.length > 0 && (
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
@@ -344,6 +272,112 @@ export function PromptDetailPage() {
               )}
             </div>
           )}
+          {/* Positive Prompt */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-green-600 dark:text-green-400">正面提示词</h3>
+              {!editing && prompt.positive && (
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(prompt.positive);
+                    showToast('success', '已复制');
+                  }}
+                  className="text-xs text-gray-400 hover:text-green-500 transition-colors flex items-center gap-1"
+                  title="复制正面提示词"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  复制
+                </button>
+              )}
+            </div>
+            {editing ? (
+              <textarea
+                value={editForm.positive || ''}
+                onChange={e => setEditForm(f => ({ ...f, positive: e.target.value }))}
+                rows={4}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-900 text-sm resize-y"
+              />
+            ) : (
+              <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed
+                max-h-40 overflow-y-auto">
+                {prompt.positive || <span className="text-gray-400 italic">空</span>}
+              </p>
+            )}
+          </div>
+          {/* Negative Prompt */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-sm font-semibold text-red-600 dark:text-red-400">负面提示词</h3>
+              {!editing && prompt.negative && (
+                <button
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(prompt.negative);
+                    showToast('success', '已复制');
+                  }}
+                  className="text-xs text-gray-400 hover:text-red-500 transition-colors flex items-center gap-1"
+                  title="复制负面提示词"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  复制
+                </button>
+              )}
+            </div>
+            {editing ? (
+              <textarea
+                value={editForm.negative || ''}
+                onChange={e => setEditForm(f => ({ ...f, negative: e.target.value }))}
+                rows={3}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-white dark:bg-gray-900 text-sm resize-y"
+              />
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 whitespace-pre-wrap leading-relaxed
+                max-h-24 overflow-y-auto">
+                {prompt.negative || <span className="text-gray-400 italic">空</span>}
+              </p>
+            )}
+          </div>
+
+          {/* Tags */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-border">
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">标签</h3>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {prompt.tags.map(tag => (
+                <button
+                  key={tag.id}
+                  onClick={() => handleRemoveTag(tag.id)}
+                  className="tag-chip tag-chip-removable text-xs"
+                >
+                  {tag.name} x
+                </button>
+              ))}
+              {prompt.tags.length === 0 && (
+                <span className="text-sm text-gray-400">暂无标签</span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <input
+                value={newTagName}
+                onChange={e => setNewTagName(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    handleAddTag(newTagName);
+                  }
+                }}
+                placeholder="添加标签..."
+                className="flex-1 px-3 py-1.5 text-sm border border-border rounded-lg
+                  bg-surface dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Button size="sm" variant="secondary" onClick={() => handleAddTag(newTagName)}>
+                添加
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
 
