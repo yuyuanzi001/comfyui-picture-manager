@@ -85,6 +85,8 @@ const api = {
       ipcRenderer.invoke(IPC.APP_SET_DATA_DIR, dir),
     openPath: (p: string): Promise<{ success: boolean }> =>
       ipcRenderer.invoke(IPC.APP_OPEN_PATH, p),
+    exportData: (): Promise<{ success: boolean; message: string; count?: number; path?: string }> =>
+      ipcRenderer.invoke(IPC.APP_EXPORT_DATA),
     getSetting: (key: string): Promise<string | null> =>
       ipcRenderer.invoke(IPC.APP_GET_SETTING, key),
     setSetting: (key: string, value: string): Promise<{ success: boolean }> =>

@@ -25,6 +25,7 @@ export function SettingsPage() {
   const [loaded, setLoaded] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [changingDir, setChangingDir] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -67,8 +68,8 @@ export function SettingsPage() {
       const r = await getAPI().images.rebuildThumbs();
       queryClient.clear();
       if (r.total === 0) showToast('info', 'No images');
-      else if (r.rebuilt > 0) { showToast('success', `Rebuilt ${r.rebuilt}/${r.total} (${r.size}px)`); setTimeout(() => navigate('/'), 800); }
-      else showToast('error', `Failed ${r.failed}`);
+      else if (r.rebuilt > 0) { showToast('success', 'Rebuilt ' + r.rebuilt + '/' + r.total + ' (' + r.size + 'px)'); setTimeout(() => navigate('/'), 800); }
+      else showToast('error', 'Failed ' + r.failed);
     } catch (err: any) { showToast('error', 'Rebuild failed: ' + err.message); }
     finally { setRebuilding(false); }
   };
@@ -95,7 +96,6 @@ export function SettingsPage() {
     setWatchDir(dir);
     try {
       await getAPI().app.setSetting('watch_dir', dir);
-      // Start watching the new directory
       await getAPI().images.scanImages();
       showToast('success', 'Watch folder set. Images will be auto-imported.');
       queryClient.invalidateQueries();
@@ -106,6 +106,23 @@ export function SettingsPage() {
     setWatchDir('');
     try { await getAPI().app.setSetting('watch_dir', ''); showToast('success', 'Watch folder removed'); }
     catch {}
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const api = getAPI();
+      const result = await api.app.exportData();
+      if (result.success) {
+        showToast('success', result.message);
+      } else {
+        showToast('error', result.message);
+      }
+    } catch (err: any) {
+      showToast('error', 'Export failed: ' + (err.message || ''));
+    } finally {
+      setExporting(false);
+    }
   };
 
   const openDataDir = async () => {
@@ -199,6 +216,17 @@ export function SettingsPage() {
               {rebuilding ? <span className="flex items-center gap-2"><Spinner className="w-3.5 h-3.5" /> Rebuilding...</span> : 'Apply to all'}
             </Button>
           </div>
+        </div>
+
+        {/* Export */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-border">
+          <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-2">Backup / Export</h3>
+          <p className="text-xs text-gray-500 mb-3">
+            Export your database, images, and thumbnails to a folder for backup or transfer.
+          </p>
+          <Button variant="secondary" size="sm" onClick={handleExport} disabled={exporting}>
+            {exporting ? <span className="flex items-center gap-2"><Spinner className="w-3.5 h-3.5" /> Exporting...</span> : 'Export Data'}
+          </Button>
         </div>
 
         {/* About */}

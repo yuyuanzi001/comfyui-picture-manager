@@ -40,4 +40,5 @@ export const IPC = {
   APP_SET_DATA_DIR: 'app:setDataDir',
   APP_GET_DATA_DIR: 'app:getDataDir',
   APP_OPEN_PATH: 'app:openPath',
+  APP_EXPORT_DATA: 'app:exportData',
 } as const;

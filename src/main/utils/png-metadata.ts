@@ -81,9 +81,14 @@ function extractFromWorkflow(
         for (const val of wv) {
           if (typeof val === 'number' || (typeof val === 'string' && /^\d+$/.test(val))) {
             const n = Number(val);
+            // Detect seed: large number > 100000
             if (!foundSeed && n > 100000) { seed = n; foundSeed = true; }
-            else if (!foundSteps && n >= 1 && n <= 200 && Number.isInteger(n)) { steps = n; foundSteps = true; }
-            else if (!foundCfg && n >= 0.5 && n <= 100 && !Number.isInteger(n)) { cfg = n; foundCfg = true; }
+            // Detect cfg: float OR low-range integer (0.5-10)
+            else if (!foundCfg && n >= 0.5 && n <= 10) { cfg = n; foundCfg = true; }
+            // Detect steps: integer in 5-200 range
+            else if (!foundSteps && n >= 5 && n <= 200 && Number.isInteger(n)) { steps = n; foundSteps = true; }
+            // Catch-all: higher-range cfg (10-100), typically float
+            else if (!foundCfg && n >= 0.5 && n <= 100) { cfg = n; foundCfg = true; }
           } else if (typeof val === 'string' && val.length > 0) {
             // Skip known non-sampler strings
             const skip = ['sgm_uniform', 'normal', 'karras', 'exponential',
